@@ -11,6 +11,7 @@
             --accent: #38bdf8;
             --panel: rgba(30, 41, 59, 0.85);
             --gold: #fbbf24;
+            --toxic: #4ade80;
         }
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; outline: none; }
 
@@ -78,7 +79,7 @@
         /* --- UI ЭЛЕМЕНТЫ --- */
         #main-menu {
             position: relative; z-index: 10;
-            display: flex; flex-direction: column; gap: 11px;
+            display: flex; flex-direction: column; gap: 10px;
             text-align: center; width: 270px;
             animation: screenPop 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
         }
@@ -93,8 +94,8 @@
             background: rgba(255, 255, 255, 0.08);
             backdrop-filter: blur(8px);
             border: 2px solid var(--accent);
-            color: white; padding: 13px 20px;
-            border-radius: 16px; font-size: 1.02rem; font-weight: 700;
+            color: white; padding: 12px 18px;
+            border-radius: 16px; font-size: 1rem; font-weight: 700;
             cursor: pointer;
             transition: transform 0.12s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.2s, box-shadow 0.2s;
             box-shadow: 0 4px 18px rgba(0, 0, 0, 0.25), 0 0 12px color-mix(in srgb, var(--accent) 30%, transparent);
@@ -112,10 +113,11 @@
             transform: skewX(-25deg);
             animation: btnShine 4s infinite;
         }
-        #main-menu .btn:nth-child(3)::after { animation-delay: 0.5s; }
-        #main-menu .btn:nth-child(4)::after { animation-delay: 1.0s; }
-        #main-menu .btn:nth-child(5)::after { animation-delay: 1.5s; }
-        #main-menu .btn:nth-child(6)::after { animation-delay: 2.0s; }
+        #main-menu .btn:nth-child(3)::after { animation-delay: 0.4s; }
+        #main-menu .btn:nth-child(4)::after { animation-delay: 0.8s; }
+        #main-menu .btn:nth-child(5)::after { animation-delay: 1.2s; }
+        #main-menu .btn:nth-child(6)::after { animation-delay: 1.6s; }
+        #main-menu .btn:nth-child(7)::after { animation-delay: 2.0s; }
         @keyframes btnShine {
             0%, 75% { left: -120%; }
             100% { left: 160%; }
@@ -124,6 +126,8 @@
         .btn-sm { padding: 9px 15px; font-size: 0.9rem; border-radius: 12px; }
         .btn-gold { border-color: var(--gold); color: var(--gold); }
         .btn-gold:active { background: var(--gold); color: #0f172a; }
+        .btn-toxic { border-color: #4ade80; color: #86efac; box-shadow: 0 4px 18px rgba(0,0,0,0.25), 0 0 14px rgba(74, 222, 128, 0.3); }
+        .btn-toxic:active { background: #4ade80; color: #052e16; }
         .btn-pink { border-color: #f472b6; color: #fbcfe8; }
         .btn-pink:active { background: #f472b6; color: #0f172a; }
         .btn-purple { border-color: #a855f7; color: #e9d5ff; }
@@ -187,6 +191,110 @@
         .slider-row { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
         .slider-row label { display: flex; justify-content: space-between; font-size: 0.85rem; color: #cbd5e1; }
         input[type="range"] { width: 100%; accent-color: #a855f7; cursor: pointer; }
+
+        /* --- ЗОМБИ-ЛАБОРАТОРИЯ --- */
+        .zlab-stats {
+            width: 100%; max-width: 360px;
+            background: linear-gradient(145deg, rgba(16, 185, 129, 0.16), rgba(15, 23, 42, 0.92));
+            border: 2px solid rgba(74, 222, 128, 0.45);
+            border-radius: 18px; padding: 12px 16px; text-align: center;
+            margin-bottom: 12px;
+            box-shadow: 0 0 22px rgba(74, 222, 128, 0.18);
+        }
+        .zlab-mutagen {
+            font-size: 2rem; font-weight: 900; color: #4ade80;
+            text-shadow: 0 0 14px rgba(74, 222, 128, 0.6);
+            font-family: monospace; line-height: 1.1;
+        }
+        .zlab-rates {
+            display: flex; justify-content: center; gap: 16px;
+            font-size: 0.8rem; color: #cbd5e1; margin-top: 5px; font-weight: 600;
+        }
+        .zlab-stage-badge {
+            display: inline-block; margin-top: 7px;
+            background: rgba(74, 222, 128, 0.15); border: 1px solid #4ade80;
+            color: #86efac; font-size: 0.72rem; font-weight: 800;
+            padding: 3px 10px; border-radius: 99px;
+        }
+
+        /* Тревога: прорыв изоляции */
+        #zlab-breach {
+            display: none; width: 100%; max-width: 360px;
+            background: linear-gradient(90deg, rgba(239, 68, 68, 0.92), rgba(220, 38, 38, 0.92));
+            border: 2px solid #fca5a5; border-radius: 14px;
+            padding: 8px 12px; margin-bottom: 10px; text-align: center;
+            box-shadow: 0 0 20px rgba(239, 68, 68, 0.7);
+            animation: pulseHint 0.4s infinite alternate;
+        }
+        #zlab-breach.active { display: block; }
+        .breach-title { font-weight: 900; font-size: 0.88rem; letter-spacing: 0.5px; }
+        .breach-bar {
+            width: 100%; height: 7px; background: rgba(0,0,0,0.4);
+            border-radius: 99px; overflow: hidden; margin-top: 5px;
+        }
+        .breach-fill { height: 100%; width: 0%; background: #fbbf24; transition: width 0.1s; }
+
+        /* Главный био-реактор */
+        .zlab-reactor-wrap {
+            position: relative; margin: 4px 0 14px;
+            display: flex; align-items: center; justify-content: center;
+        }
+        #zlab-reactor {
+            width: 146px; height: 146px; border-radius: 50%;
+            background: radial-gradient(circle at 35% 30%, #22c55e, #065f46 65%, #022c22 100%);
+            border: 4px solid #4ade80;
+            box-shadow: 0 0 32px rgba(74, 222, 128, 0.55), inset 0 0 24px rgba(134, 239, 172, 0.4);
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            cursor: pointer; position: relative;
+            transition: transform 0.08s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.15s;
+        }
+        #zlab-reactor:active {
+            transform: scale(0.88);
+            box-shadow: 0 0 48px rgba(74, 222, 128, 0.9), inset 0 0 30px rgba(255, 255, 255, 0.5);
+        }
+        #zlab-reactor.breach-mode {
+            background: radial-gradient(circle at 35% 30%, #ef4444, #991b1b 65%, #450a0a 100%);
+            border-color: #fca5a5;
+            box-shadow: 0 0 40px rgba(239, 68, 68, 0.85);
+        }
+        #zlab-creature {
+            font-size: 4rem; line-height: 1;
+            filter: drop-shadow(0 0 10px rgba(0,0,0,0.5));
+            animation: floatSlow 2s ease-in-out infinite;
+            pointer-events: none;
+        }
+        .zlab-tap-hint {
+            font-size: 0.65rem; font-weight: 800; color: #dcfce7;
+            letter-spacing: 1px; margin-top: 2px; opacity: 0.9; pointer-events: none;
+        }
+
+        /* Магазин улучшений */
+        .zlab-shop {
+            width: 100%; max-width: 360px;
+            display: flex; flex-direction: column; gap: 8px;
+            padding-bottom: 24px;
+        }
+        .zlab-item {
+            background: var(--panel); border: 1.5px solid rgba(255,255,255,0.12);
+            border-radius: 14px; padding: 10px 12px;
+            display: flex; align-items: center; justify-content: space-between; gap: 10px;
+            cursor: pointer; transition: transform 0.1s, border-color 0.2s, opacity 0.2s;
+        }
+        .zlab-item.can-buy {
+            border-color: #4ade80;
+            background: linear-gradient(135deg, rgba(34, 197, 94, 0.16), rgba(30, 41, 59, 0.92));
+            box-shadow: 0 0 12px rgba(74, 222, 128, 0.2);
+        }
+        .zlab-item.can-buy:active { transform: scale(0.96); }
+        .zlab-item.locked { opacity: 0.55; }
+        .zlab-item-left { display: flex; align-items: center; gap: 10px; }
+        .zlab-item-icon { font-size: 1.65rem; }
+        .zlab-item-name { font-weight: 800; font-size: 0.9rem; color: #f8fafc; }
+        .zlab-item-desc { font-size: 0.72rem; color: #94a3b8; }
+        .zlab-item-right { text-align: right; flex-shrink: 0; }
+        .zlab-item-cost { font-weight: 900; font-size: 0.88rem; color: #4ade80; font-family: monospace; }
+        .zlab-item.locked .zlab-item-cost { color: #f87171; }
+        .zlab-item-lvl { font-size: 0.7rem; color: #cbd5e1; margin-top: 2px; }
 
         /* --- САПЕР --- */
         #grid {
@@ -317,7 +425,7 @@
             box-shadow: 0 0 18px #fbbf24, 3px 4px 0 #b45309;
             animation: pulseHint 0.55s infinite alternate;
         }
-        @keyframes pulseHint { from { transform: scale(1); } to { transform: scale(1.1) rotate(3deg); } }
+        @keyframes pulseHint { from { transform: scale(1); } to { transform: scale(1.06); } }
         .mj-controls { display: flex; gap: 10px; margin-top: 12px; width: 100%; max-width: 360px; justify-content: center; }
 
         /* --- ОВЕРЛЕИ ПОБЕДЫ И ПРОИГРЫША --- */
@@ -375,9 +483,7 @@
             animation: trophyBounce 0.8s ease-in-out infinite alternate;
             filter: drop-shadow(0 0 18px rgba(251, 191, 36, 0.8));
         }
-        .lose-card .victory-trophy {
-            filter: drop-shadow(0 0 18px rgba(239, 68, 68, 0.85));
-        }
+        .lose-card .victory-trophy { filter: drop-shadow(0 0 18px rgba(239, 68, 68, 0.85)); }
         @keyframes trophyBounce {
             from { transform: translateY(0) scale(1) rotate(-5deg); }
             to { transform: translateY(-10px) scale(1.12) rotate(5deg); }
@@ -410,10 +516,7 @@
             padding: 5px 14px; border-radius: 99px; font-size: 0.8rem; font-weight: 800;
             margin-bottom: 18px; animation: pulseHint 0.7s infinite alternate;
         }
-        .lose-card .victory-aura {
-            background: rgba(239, 68, 68, 0.18);
-            border-color: #f87171; color: #fca5a5;
-        }
+        .lose-card .victory-aura { background: rgba(239, 68, 68, 0.18); border-color: #f87171; color: #fca5a5; }
         .victory-actions { display: flex; flex-direction: column; gap: 10px; }
     </style>
 </head>
@@ -428,9 +531,42 @@
         <button class="btn" onclick="sfxClick(); showScreen('mines-screen'); initMines();">💣 САПЕР</button>
         <button class="btn" onclick="sfxClick(); showScreen('tetris-screen'); initTetris();">🧱 ТЕТРИС</button>
         <button class="btn btn-gold" onclick="sfxClick(); openMahjongLevels()">🀄 МАДЖОНГ</button>
+        <button class="btn btn-toxic" onclick="sfxClick(); openZombieLab()">🧪 ЗОМБИ-ЛАБА</button>
         <button class="btn btn-purple" onclick="sfxClick(); openMusicLibrary()">🎵 БИБЛИОТЕКА МУЗЫКИ</button>
         <button class="btn btn-pink" onclick="sfxClick(); showScreen('lobby-screen')">🎨 КАСТОМИЗАЦИЯ ЛОББИ</button>
         <button class="btn" style="border-color: #94a3b8;" onclick="sfxClick(); showScreen('settings-screen')">⚙️ НАСТРОЙКИ ИГР</button>
+    </div>
+
+    <!-- ИГРА 4: ЗОМБИ-ЛАБОРАТОРИЯ -->
+    <div id="zlab-screen" class="screen">
+        <div class="top-bar">
+            <button class="btn btn-sm" onclick="sfxClick(); backToMenu()">⬅ Меню</button>
+            <h3 style="margin:0; color:#4ade80;">🧪 ЗОМБИ-ЛАБА</h3>
+            <button class="btn btn-sm" onclick="sfxClick(); resetZombieLab()" title="Сброс">🗑️</button>
+        </div>
+
+        <div class="zlab-stats">
+            <div class="zlab-mutagen">🧪 <span id="zlab-val">0</span></div>
+            <div class="zlab-rates">
+                <span>👆 +<span id="zlab-click">1</span>/клик</span>
+                <span>⚡ +<span id="zlab-sec">0</span>/сек</span>
+            </div>
+            <div class="zlab-stage-badge" id="zlab-stage">Стадия 1: Вирус</div>
+        </div>
+
+        <div id="zlab-breach">
+            <div class="breach-title">⚠️ ПРОРЫВ ИЗОЛЯЦИИ! ТАПАЙ! (<span id="breach-time">8</span>с)</div>
+            <div class="breach-bar"><div class="breach-fill" id="breach-fill"></div></div>
+        </div>
+
+        <div class="zlab-reactor-wrap">
+            <div id="zlab-reactor" onclick="tapReactor(event)">
+                <div id="zlab-creature">🦠</div>
+                <div class="zlab-tap-hint">ТАПАЙ!</div>
+            </div>
+        </div>
+
+        <div class="zlab-shop" id="zlab-shop"></div>
     </div>
 
     <!-- БИБЛИОТЕКА МУЗЫКИ -->
@@ -721,6 +857,11 @@
             ensureAudio();
             [300, 420, 560, 480].forEach((n, idx) => setTimeout(() => playTone(n, 0.07, 'sine', 0.14 * audioPrefs.sfxVol), idx * 40));
         }
+        function sfxAlarm() {
+            ensureAudio();
+            playTone(880, 0.16, 'sawtooth', 0.16 * audioPrefs.sfxVol, 440);
+            setTimeout(() => playTone(880, 0.16, 'sawtooth', 0.16 * audioPrefs.sfxVol, 440), 200);
+        }
 
         function startBgm() {
             stopBgm();
@@ -940,9 +1081,13 @@
         function stopAllGames() {
             if (tInt) { clearInterval(tInt); tInt = null; }
             if (mTimerInt) { clearInterval(mTimerInt); mTimerInt = null; }
+            if (zLabInt) { clearInterval(zLabInt); zLabInt = null; }
+            if (zBreachInt) { clearInterval(zBreachInt); zBreachInt = null; }
             if (victoryFxTimer) { clearInterval(victoryFxTimer); victoryFxTimer = null; }
             document.getElementById('mj-victory-overlay').classList.remove('active');
             document.getElementById('mines-result-overlay').classList.remove('active');
+            endBreach(false);
+            saveZombieLab();
             mGameOver = true;
             if (mPressTimer) { clearTimeout(mPressTimer); mPressTimer = null; }
         }
@@ -961,6 +1106,212 @@
             if (document.getElementById('vibrate-on').checked && navigator.vibrate) navigator.vibrate(ms);
         }
         window.oncontextmenu = (e) => { e.preventDefault(); return false; };
+
+        // ==================== 4. ЗОМБИ-ЛАБОРАТОРИЯ (КЛИКЕР / ТАЙКУН) ====================
+        const ZLAB_STAGES = [
+            { min: 0,       icon: '🦠', name: 'Стадия 1: Вирус' },
+            { min: 150,     icon: '🧪', name: 'Стадия 2: Био-слизень' },
+            { min: 1000,    icon: '🧟', name: 'Стадия 3: Зомби' },
+            { min: 5000,    icon: '🧌', name: 'Стадия 4: Мутант' },
+            { min: 25000,   icon: '🦖', name: 'Стадия 5: Тиран' },
+            { min: 100000,  icon: '🤖', name: 'Стадия 6: Кибер-Зомби' },
+            { min: 500000,  icon: '👑', name: 'Стадия 7: Альфа-Босс' }
+        ];
+
+        const ZLAB_UPGRADES = [
+            { id: 'syringe',   icon: '💉', name: 'Шприц мутагена',   desc: '+1 к силе клика',      baseCost: 15,    click: 1,   sec: 0 },
+            { id: 'incubator', icon: '🧫', name: 'Инкубатор',        desc: '+2 мутагена / сек',    baseCost: 50,    click: 0,   sec: 2 },
+            { id: 'stim',      icon: '⚡', name: 'Плазма-стимулятор',desc: '+5 к силе клика',      baseCost: 220,   click: 5,   sec: 0 },
+            { id: 'scientist', icon: '👨‍🔬', name: 'Безумный учёный', desc: '+12 мутагена / сек',   baseCost: 600,   click: 0,   sec: 12 },
+            { id: 'reactor',   icon: '☢️', name: 'Био-реактор',      desc: '+45 мутагена / сек',   baseCost: 2400,  click: 0,   sec: 45 },
+            { id: 'alien',     icon: '🛸', name: 'Штамм Омега',      desc: '+20 клик, +180 / сек', baseCost: 12000, click: 20,  sec: 180 }
+        ];
+
+        let zState = loadZombieLab();
+        let zLabInt = null, zBreachInt = null, zBreachActive = false, zBreachTaps = 0, zBreachNeed = 15, zBreachTime = 8, zTicks = 0;
+
+        function loadZombieLab() {
+            try {
+                const raw = localStorage.getItem('zombieLabSave');
+                if (raw) return JSON.parse(raw);
+            } catch {}
+            return { mutagen: 0, total: 0, owned: {} };
+        }
+
+        function saveZombieLab() {
+            try { localStorage.setItem('zombieLabSave', JSON.stringify(zState)); } catch {}
+        }
+
+        function formatNum(n) {
+            n = Math.floor(n);
+            if (n >= 1e6) return (n / 1e6).toFixed(2) + 'M';
+            if (n >= 1e3) return (n / 1e3).toFixed(1) + 'K';
+            return String(n);
+        }
+
+        function getZLabStats() {
+            let perClick = 1, perSec = 0;
+            ZLAB_UPGRADES.forEach(u => {
+                const cnt = zState.owned[u.id] || 0;
+                perClick += cnt * u.click;
+                perSec += cnt * u.sec;
+            });
+            return { perClick, perSec };
+        }
+
+        function getUpgradeCost(u) {
+            const cnt = zState.owned[u.id] || 0;
+            return Math.floor(u.baseCost * Math.pow(1.18, cnt));
+        }
+
+        function openZombieLab() {
+            showScreen('zlab-screen');
+            renderZombieLab();
+            zTicks = 0;
+            zLabInt = setInterval(() => {
+                const { perSec } = getZLabStats();
+                if (perSec > 0) {
+                    zState.mutagen += perSec / 5;
+                    zState.total += perSec / 5;
+                }
+                zTicks++;
+                if (zTicks % 15 === 0) saveZombieLab();
+                // Прорыв изоляции каждые ~35 сек, если уже есть хоть какой-то прогресс
+                if (!zBreachActive && zTicks > 0 && zTicks % 175 === 0 && zState.total >= 30) {
+                    startBreach();
+                }
+                updateZLabNumbers();
+            }, 200);
+        }
+
+        function tapReactor(e) {
+            const { perClick, perSec } = getZLabStats();
+            const mult = zBreachActive ? 2 : 1;
+            const gain = perClick * mult;
+            zState.mutagen += gain;
+            zState.total += gain;
+
+            sfxPop();
+            doVibrate(15);
+            const rx = e.clientX || window.innerWidth / 2;
+            const ry = e.clientY || window.innerHeight / 2;
+            spawnBurst(rx, ry, zBreachActive ? 14 : 7, zBreachActive ? ['#ef4444', '#fbbf24'] : ['#4ade80', '#86efac', '#ffffff']);
+            spawnFloatText(rx, ry - 15, `+${formatNum(gain)} 🧪`, zBreachActive ? '#fbbf24' : '#4ade80');
+
+            if (zBreachActive) {
+                zBreachTaps++;
+                document.getElementById('breach-fill').style.width = Math.min(100, (zBreachTaps / zBreachNeed) * 100) + '%';
+                if (zBreachTaps >= zBreachNeed) {
+                    const bonus = Math.max(50, perClick * 20 + perSec * 12);
+                    zState.mutagen += bonus;
+                    zState.total += bonus;
+                    sfxVictory();
+                    triggerShake(true);
+                    doVibrate([60, 40, 120]);
+                    spawnBurst(window.innerWidth / 2, window.innerHeight / 2, 45, ['#4ade80', '#fbbf24', '#ffffff'], 1.3);
+                    spawnFloatText(window.innerWidth / 2, window.innerHeight / 2 - 40, `🛡️ УДЕРЖАН! +${formatNum(bonus)} 🧪`, '#fbbf24');
+                    endBreach(true);
+                }
+            }
+
+            updateZLabNumbers();
+        }
+
+        function startBreach() {
+            zBreachActive = true; zBreachTaps = 0; zBreachNeed = 15; zBreachTime = 8;
+            document.getElementById('zlab-breach').classList.add('active');
+            document.getElementById('zlab-reactor').classList.add('breach-mode');
+            document.getElementById('breach-fill').style.width = '0%';
+            document.getElementById('breach-time').innerText = zBreachTime;
+            sfxAlarm();
+            triggerShake(false);
+
+            clearInterval(zBreachInt);
+            zBreachInt = setInterval(() => {
+                zBreachTime--;
+                document.getElementById('breach-time').innerText = zBreachTime;
+                if (zBreachTime <= 0) endBreach(false);
+            }, 1000);
+        }
+
+        function endBreach(won) {
+            zBreachActive = false;
+            if (zBreachInt) { clearInterval(zBreachInt); zBreachInt = null; }
+            const b = document.getElementById('zlab-breach');
+            const r = document.getElementById('zlab-reactor');
+            if (b) b.classList.remove('active');
+            if (r) r.classList.remove('breach-mode');
+        }
+
+        function buyUpgrade(id) {
+            const u = ZLAB_UPGRADES.find(x => x.id === id);
+            if (!u) return;
+            const cost = getUpgradeCost(u);
+            if (zState.mutagen < cost) return;
+
+            zState.mutagen -= cost;
+            zState.owned[u.id] = (zState.owned[u.id] || 0) + 1;
+            saveZombieLab();
+            sfxMatch(3);
+            doVibrate(35);
+            renderZombieLab();
+        }
+
+        function updateZLabNumbers() {
+            const { perClick, perSec } = getZLabStats();
+            document.getElementById('zlab-val').innerText = formatNum(zState.mutagen);
+            document.getElementById('zlab-click').innerText = formatNum(perClick);
+            document.getElementById('zlab-sec').innerText = formatNum(perSec);
+
+            let stage = ZLAB_STAGES[0];
+            for (const s of ZLAB_STAGES) if (zState.total >= s.min) stage = s;
+            document.getElementById('zlab-creature').innerText = stage.icon;
+            document.getElementById('zlab-stage').innerText = stage.name;
+
+            ZLAB_UPGRADES.forEach(u => {
+                const el = document.getElementById('zupg-' + u.id);
+                if (!el) return;
+                const canBuy = zState.mutagen >= getUpgradeCost(u);
+                el.classList.toggle('can-buy', canBuy);
+                el.classList.toggle('locked', !canBuy);
+            });
+        }
+
+        function renderZombieLab() {
+            const shop = document.getElementById('zlab-shop');
+            shop.innerHTML = '';
+            ZLAB_UPGRADES.forEach(u => {
+                const cost = getUpgradeCost(u);
+                const cnt = zState.owned[u.id] || 0;
+                const canBuy = zState.mutagen >= cost;
+                const item = document.createElement('div');
+                item.id = 'zupg-' + u.id;
+                item.className = 'zlab-item ' + (canBuy ? 'can-buy' : 'locked');
+                item.innerHTML = `
+                    <div class="zlab-item-left">
+                        <div class="zlab-item-icon">${u.icon}</div>
+                        <div>
+                            <div class="zlab-item-name">${u.name}</div>
+                            <div class="zlab-item-desc">${u.desc}</div>
+                        </div>
+                    </div>
+                    <div class="zlab-item-right">
+                        <div class="zlab-item-cost">🧪 ${formatNum(cost)}</div>
+                        <div class="zlab-item-lvl">Ур. ${cnt}</div>
+                    </div>
+                `;
+                item.onclick = () => buyUpgrade(u.id);
+                shop.appendChild(item);
+            });
+            updateZLabNumbers();
+        }
+
+        function resetZombieLab() {
+            if (!confirm('Сбросить весь прогресс Зомби-Лаборатории?')) return;
+            zState = { mutagen: 0, total: 0, owned: {} };
+            saveZombieLab();
+            renderZombieLab();
+        }
 
         // ==================== 1. САПЕР (КЛАССИКА + КРАСИВЫЕ ПЛАШКИ) ====================
         let mSize = 8, mCount = 10, mData = [], mGameOver = false, mPressTimer = null;
