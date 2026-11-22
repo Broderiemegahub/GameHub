@@ -1,10 +1,10 @@
 // ==================== СИСТЕМА ОБНОВЛЕНИЙ ====================
-const APP_VERSION = '2.2';
+const APP_VERSION = '1.2';
 const CHANGELOG = [
-    '⚙️ Все настройки (стиль, музыка и игры) объединены в одно меню с вкладками',
-    '🤍 Добавлен стиль «Минимализм» без неона и СДВГ-эффектов',
-    '🧪 Добавлена «Зомби-лаборатория» с хардкор-событиями',
-    '🎵 Встроенная библиотека музыки (4 трека + эффекты)'
+    '🎧 Полностью переработан звук: добавлены 4 трека в стиле TikTok (Drift Phonk, Sigma Bass, Brazilian Funk, Interstellar)',
+    '🔊 Добавлены 808-бас, ковбеллы, эхо и компрессор звука',
+    '⚙️ Все настройки объединены в одно меню с вкладками',
+    '🤍 Добавлен стиль «Минимализм» без неона'
 ];
 
 function initUpdateBadge() {
@@ -62,31 +62,74 @@ function switchSettingsTab(tab, silent = false) {
     });
 }
 
-// ==================== АУДИО ДВИЖОК ====================
+// ==================== ПРОДВИНУТЫЙ АУДИО ДВИЖОК (TIKTOK BEATS + SFX) ====================
 const AudioCtx = window.AudioContext || window.webkitAudioContext;
-let audioCtx = null, bgmTimer = null, bgmStep = 0;
+let audioCtx = null, masterComp = null, delayNode = null, distCurve = null;
+let bgmTimer = null, bgmStep = 0;
 
 const MUSIC_TRACKS = [
-    { id: 'techno',    title: '⚡ Cyber Techno',    desc: '132 BPM • Плотный бас и драйв' },
-    { id: 'synthwave', title: '🌃 Neon Synthwave',  desc: '112 BPM • Ретро-арпеджио 80-х' },
-    { id: 'chiptune',  title: '👾 8-Bit Arcade',    desc: '140 BPM • Классика приставок' },
-    { id: 'lofi',      title: '🌙 Chill Beat',      desc: '88 BPM • Спокойный бит для фокуса' },
-    { id: 'none',      title: '🔇 Без музыки',      desc: 'Только звуковые эффекты' }
+    { id: 'phonk',  title: '🔥 Drift Phonk (808)',   desc: '145 BPM • Ковбеллы и жёсткий 808-бас' },
+    { id: 'sigma',  title: '🕶️ Dark Sigma Bass',    desc: '124 BPM • Атмосферный замедленный бас' },
+    { id: 'brazil', title: '🏎️ Brazilian Funk',     desc: '130 BPM • Качающий ритм и саб-дроп' },
+    { id: 'space',  title: '🌌 Interstellar Vibe',  desc: '105 BPM • Космическое пианино и эхо' },
+    { id: 'none',   title: '🔇 Без музыки',         desc: 'Только звуковые эффекты' }
 ];
 
 let audioPrefs = loadAudioPrefs();
 
 function loadAudioPrefs() {
-    try { const raw = localStorage.getItem('gameHubAudio'); if (raw) return JSON.parse(raw); } catch {}
-    return { track: 'techno', bgmVol: 0.4, sfxVol: 0.75 };
+    try {
+        const raw = localStorage.getItem('gameHubAudio');
+        if (raw) {
+            const parsed = JSON.parse(raw);
+            if (!MUSIC_TRACKS.some(t => t.id === parsed.track)) parsed.track = 'phonk';
+            return parsed;
+        }
+    } catch {}
+    return { track: 'phonk', bgmVol: 0.45, sfxVol: 0.75 };
 }
 function saveAudioPrefs() {
     try { localStorage.setItem('gameHubAudio', JSON.stringify(audioPrefs)); } catch {}
 }
+
+function makeDistortionCurve(amount = 28) {
+    const samples = 44100, curve = new Float32Array(samples);
+    for (let i = 0; i < samples; i++) {
+        const x = (i * 2) / samples - 1;
+        curve[i] = ((3 + amount) * x * 20 * (Math.PI / 180)) / (Math.PI + amount * Math.abs(x));
+    }
+    return curve;
+}
+
 function ensureAudio() {
-    if (!audioCtx) audioCtx = new AudioCtx();
+    if (!audioCtx) {
+        audioCtx = new AudioCtx();
+        distCurve = makeDistortionCurve(24);
+
+        masterComp = audioCtx.createDynamicsCompressor();
+        masterComp.threshold.value = -14;
+        masterComp.knee.value = 12;
+        masterComp.ratio.value = 6;
+        masterComp.attack.value = 0.004;
+        masterComp.release.value = 0.16;
+        masterComp.connect(audioCtx.destination);
+
+        delayNode = audioCtx.createDelay(1.0);
+        delayNode.delayTime.value = 0.25;
+        const fb = audioCtx.createGain();
+        fb.gain.value = 0.34;
+        const lp = audioCtx.createBiquadFilter();
+        lp.type = 'lowpass';
+        lp.frequency.value = 2100;
+
+        delayNode.connect(lp);
+        lp.connect(fb);
+        fb.connect(delayNode);
+        lp.connect(masterComp);
+    }
     if (audioCtx.state === 'suspended') audioCtx.resume();
 }
+
 function playTone(freq, dur, type = 'sine', vol = 0.2, slideTo = null) {
     if (!audioCtx || vol <= 0.001) return;
     const now = audioCtx.currentTime;
@@ -95,22 +138,109 @@ function playTone(freq, dur, type = 'sine', vol = 0.2, slideTo = null) {
     if (slideTo) osc.frequency.exponentialRampToValueAtTime(Math.max(20, slideTo), now + dur);
     gain.gain.setValueAtTime(vol, now);
     gain.gain.exponentialRampToValueAtTime(0.001, now + dur);
-    osc.connect(gain); gain.connect(audioCtx.destination);
+    osc.connect(gain); gain.connect(masterComp);
     osc.start(now); osc.stop(now + dur + 0.02);
 }
-function playNoise(dur, vol = 0.15, highpass = 1000) {
+
+function playNoise(dur, vol = 0.15, filterFreq = 1000, filterType = 'highpass') {
     if (!audioCtx || vol <= 0.001) return;
     const bufferSize = Math.floor(audioCtx.sampleRate * dur);
     const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
     const data = buffer.getChannelData(0);
     for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
     const noise = audioCtx.createBufferSource(); noise.buffer = buffer;
-    const filter = audioCtx.createBiquadFilter(); filter.type = 'highpass'; filter.frequency.value = highpass;
+    const filter = audioCtx.createBiquadFilter(); filter.type = filterType; filter.frequency.value = filterFreq;
     const gain = audioCtx.createGain(), now = audioCtx.currentTime;
     gain.gain.setValueAtTime(vol, now); gain.gain.exponentialRampToValueAtTime(0.001, now + dur);
-    noise.connect(filter); filter.connect(gain); gain.connect(audioCtx.destination); noise.start(now);
+    noise.connect(filter); filter.connect(gain); gain.connect(masterComp); noise.start(now);
 }
 
+// Синтезатор 808-кика с саб-басом (качает даже на динамике телефона)
+function play808Kick(vol = 0.45, subFreq = 44, dur = 0.28) {
+    if (!audioCtx || vol <= 0.001) return;
+    const now = audioCtx.currentTime;
+    const osc = audioCtx.createOscillator();
+    const shaper = audioCtx.createWaveShaper();
+    const gain = audioCtx.createGain();
+
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(155, now);
+    osc.frequency.exponentialRampToValueAtTime(subFreq, now + 0.065);
+    osc.frequency.exponentialRampToValueAtTime(Math.max(28, subFreq * 0.85), now + dur);
+
+    shaper.curve = distCurve;
+    gain.gain.setValueAtTime(vol, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + dur);
+
+    osc.connect(shaper); shaper.connect(gain); gain.connect(masterComp);
+    osc.start(now); osc.stop(now + dur + 0.02);
+}
+
+// Фирменный ковбелл TR-808 для Drift Phonk
+function playCowbell(freq, dur = 0.16, vol = 0.25, echo = true) {
+    if (!audioCtx || vol <= 0.001) return;
+    const now = audioCtx.currentTime;
+    const osc1 = audioCtx.createOscillator();
+    const osc2 = audioCtx.createOscillator();
+    const bp = audioCtx.createBiquadFilter();
+    const gain = audioCtx.createGain();
+
+    osc1.type = 'square';
+    osc2.type = 'square';
+    osc1.frequency.setValueAtTime(freq, now);
+    osc2.frequency.setValueAtTime(freq * 1.485, now);
+
+    bp.type = 'bandpass';
+    bp.frequency.setValueAtTime(freq * 1.55, now);
+    bp.Q.value = 3.2;
+
+    gain.gain.setValueAtTime(0.001, now);
+    gain.gain.linearRampToValueAtTime(vol, now + 0.006);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + dur);
+
+    osc1.connect(bp); osc2.connect(bp);
+    bp.connect(gain); gain.connect(masterComp);
+    if (echo && delayNode) {
+        const send = audioCtx.createGain();
+        send.gain.value = 0.28;
+        gain.connect(send); send.connect(delayNode);
+    }
+
+    osc1.start(now); osc2.start(now);
+    osc1.stop(now + dur + 0.02); osc2.stop(now + dur + 0.02);
+}
+
+// Синтезатор с плавным фильтром и эхом
+function playFilteredSynth(freq, dur, type = 'sawtooth', vol = 0.2, cutStart = 1800, cutEnd = 350, echo = true) {
+    if (!audioCtx || vol <= 0.001) return;
+    const now = audioCtx.currentTime;
+    const osc = audioCtx.createOscillator();
+    const filter = audioCtx.createBiquadFilter();
+    const gain = audioCtx.createGain();
+
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, now);
+
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(cutStart, now);
+    filter.frequency.exponentialRampToValueAtTime(Math.max(80, cutEnd), now + dur);
+    filter.Q.value = 2.5;
+
+    gain.gain.setValueAtTime(0.001, now);
+    gain.gain.linearRampToValueAtTime(vol, now + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + dur);
+
+    osc.connect(filter); filter.connect(gain); gain.connect(masterComp);
+    if (echo && delayNode) {
+        const send = audioCtx.createGain();
+        send.gain.value = 0.35;
+        gain.connect(send); send.connect(delayNode);
+    }
+
+    osc.start(now); osc.stop(now + dur + 0.03);
+}
+
+// --- ЗВУКОВЫЕ ЭФФЕКТЫ (SFX) ---
 function sfxClick() { ensureAudio(); playTone(520, 0.06, 'triangle', 0.16 * audioPrefs.sfxVol, 780); }
 function sfxPop() { ensureAudio(); playTone(360, 0.08, 'sine', 0.18 * audioPrefs.sfxVol, 620); }
 function sfxFlag() { ensureAudio(); playTone(680, 0.07, 'square', 0.1 * audioPrefs.sfxVol, 920); }
@@ -146,40 +276,96 @@ function sfxAlarm() {
     setTimeout(() => playTone(880, 0.16, 'sawtooth', 0.18 * audioPrefs.sfxVol, 440), 200);
 }
 
+// --- СЕКВЕНСОР ФОНОВОЙ МУЗЫКИ ---
 function startBgm() {
     stopBgm();
     if (audioPrefs.track === 'none' || audioPrefs.bgmVol <= 0.01) return;
     ensureAudio(); bgmStep = 0;
-    const bpmMap = { techno: 132, synthwave: 112, chiptune: 140, lofi: 88 };
-    const stepMs = (60000 / (bpmMap[audioPrefs.track] || 120)) / 4;
+
+    const bpmMap = { phonk: 145, sigma: 124, brazil: 130, space: 105 };
+    const stepMs = (60000 / (bpmMap[audioPrefs.track] || 130)) / 4;
 
     bgmTimer = setInterval(() => {
         if (!audioCtx || audioCtx.state !== 'running') return;
-        const v = audioPrefs.bgmVol * 0.28, s = bgmStep % 16;
+        const v = audioPrefs.bgmVol;
+        const s = bgmStep % 32;
 
-        if (audioPrefs.track === 'techno') {
-            if (s % 4 === 0) playTone(125, 0.13, 'sine', v * 1.4, 38);
-            if (s % 4 === 2) playNoise(0.04, v * 0.35, 6500);
-            const bass = [55, 0, 55, 65.4, 55, 0, 73.4, 65.4, 55, 0, 55, 82.4, 73.4, 0, 65.4, 0];
-            if (bass[s]) playTone(bass[s], 0.11, 'sawtooth', v * 0.55);
-            if (s === 0 || s === 6 || s === 12) playTone(220 * (s === 12 ? 1.5 : 1), 0.09, 'square', v * 0.22);
-        } else if (audioPrefs.track === 'synthwave') {
-            if (s === 0 || s === 8) playTone(110, 0.14, 'sine', v * 1.2, 42);
-            if (s === 4 || s === 12) playNoise(0.09, v * 0.4, 1500);
-            const arp = [220, 261.6, 329.6, 392, 220, 261.6, 329.6, 440, 174.6, 220, 261.6, 349.2, 196, 246.9, 293.6, 392];
-            playTone(arp[s], 0.14, 'triangle', v * 0.45);
-            if (s % 4 === 0) playTone(arp[s] / 2, 0.25, 'sawtooth', v * 0.3);
-        } else if (audioPrefs.track === 'chiptune') {
-            const mel = [523, 0, 659, 784, 0, 659, 523, 392, 440, 0, 523, 659, 587, 0, 493, 0];
-            const bas = [130, 130, 196, 196, 130, 130, 196, 196, 110, 110, 164, 164, 146, 146, 196, 196];
-            if (mel[s]) playTone(mel[s], 0.09, 'square', v * 0.32);
-            if (s % 2 === 0) playTone(bas[s], 0.08, 'triangle', v * 0.45);
-        } else if (audioPrefs.track === 'lofi') {
-            if (s === 0 || s === 10) playTone(95, 0.16, 'sine', v * 1.0, 40);
-            if (s === 4 || s === 12) playNoise(0.07, v * 0.25, 2200);
-            if (s === 0) { playTone(261.6, 0.6, 'sine', v * 0.3); playTone(329.6, 0.6, 'sine', v * 0.25); playTone(392, 0.6, 'sine', v * 0.2); }
-            if (s === 8) { playTone(220, 0.6, 'sine', v * 0.3); playTone(261.6, 0.6, 'sine', v * 0.25); playTone(329.6, 0.6, 'sine', v * 0.2); }
+        if (audioPrefs.track === 'phonk') {
+            // 1. DRIFT PHONK (808 Cowbell + Heavy Sub)
+            const cowbellMel = [
+                554.37, 0, 554.37, 587.33, 554.37, 0, 493.88, 440.00,
+                554.37, 0, 554.37, 739.99, 587.33, 554.37, 493.88, 0,
+                554.37, 0, 554.37, 587.33, 554.37, 0, 440.00, 392.00,
+                369.99, 0, 440.00, 493.88, 554.37, 0, 493.88, 0
+            ];
+            if (cowbellMel[s]) playCowbell(cowbellMel[s], 0.17, v * 0.34, true);
+
+            // 808 Kick + Sub
+            if ([0, 6, 10, 16, 22, 26].includes(s)) {
+                const subNote = s < 16 ? 46.25 : (s < 24 ? 36.71 : 41.20);
+                play808Kick(v * 0.65, subNote, 0.32);
+            }
+            // Trap Snare/Clap
+            if (s % 8 === 4) {
+                playNoise(0.11, v * 0.28, 1200, 'bandpass');
+                playTone(190, 0.08, 'triangle', v * 0.2, 95);
+            }
+            // Hi-hats + roll
+            if (s % 2 === 0 || s === 15 || s === 30 || s === 31) {
+                playNoise(0.03, v * 0.12, 7500, 'highpass');
+            }
         }
+        else if (audioPrefs.track === 'sigma') {
+            // 2. DARK SIGMA BASS (Slowed Synthwave / Metamorphosis vibe)
+            const bassSeq = [65.41, 65.41, 51.91, 51.91, 43.65, 43.65, 49.00, 49.00];
+            const barIdx = Math.floor(s / 4);
+            if (s % 2 === 0) {
+                playFilteredSynth(bassSeq[barIdx], 0.22, 'sawtooth', v * 0.36, 650, 140, false);
+            }
+            const leadSeq = [
+                523.25, 0, 392.00, 0, 466.16, 0, 392.00, 0,
+                415.30, 0, 349.23, 0, 392.00, 0, 311.13, 0,
+                523.25, 0, 587.33, 0, 622.25, 0, 587.33, 523.25,
+                466.16, 0, 415.30, 0, 392.00, 0, 0, 0
+            ];
+            if (leadSeq[s]) {
+                playFilteredSynth(leadSeq[s], 0.28, 'sawtooth', v * 0.24, 2400, 500, true);
+            }
+            if (s % 4 === 0) play808Kick(v * 0.55, 42, 0.24);
+            if (s % 8 === 4) playNoise(0.15, v * 0.26, 1100, 'highpass');
+        }
+        else if (audioPrefs.track === 'brazil') {
+            // 3. BRAZILIAN FUNK (Синкопированный ритм + саб-дроп)
+            if ([0, 3, 6, 8, 11, 14, 16, 19, 22, 24, 27, 30].includes(s)) {
+                play808Kick(v * 0.68, s % 16 === 0 ? 48 : 55, 0.22);
+            }
+            const funkLead = [
+                329.63, 0, 329.63, 392.00, 0, 329.63, 440.00, 0,
+                329.63, 0, 329.63, 493.88, 0, 440.00, 392.00, 0,
+                659.25, 0, 659.25, 783.99, 0, 659.25, 880.00, 0,
+                659.25, 0, 587.33, 493.88, 0, 440.00, 392.00, 0
+            ];
+            if (funkLead[s]) {
+                playFilteredSynth(funkLead[s], 0.14, 'square', v * 0.22, 1900, 420, true);
+            }
+            if (s % 4 === 2) playNoise(0.04, v * 0.16, 5500, 'highpass');
+        }
+        else if (audioPrefs.track === 'space') {
+            // 4. INTERSTELLAR VIBE (Эмоциональное арпеджио + эхо)
+            const arp = [
+                220.00, 329.63, 440.00, 523.25, 659.25, 523.25, 440.00, 329.63,
+                174.61, 261.63, 349.23, 440.00, 523.25, 440.00, 349.23, 261.63,
+                261.63, 329.63, 392.00, 523.25, 659.25, 523.25, 392.00, 329.63,
+                196.00, 246.94, 392.00, 493.88, 587.33, 493.88, 392.00, 246.94
+            ];
+            playFilteredSynth(arp[s], 0.34, 'triangle', v * 0.28, 2200, 600, true);
+            if (s % 8 === 0) {
+                const pads = [110.00, 87.31, 130.81, 98.00];
+                playFilteredSynth(pads[s / 8], 1.1, 'sine', v * 0.35, 500, 250, false);
+                play808Kick(v * 0.35, 40, 0.25);
+            }
+        }
+
         bgmStep++;
     }, stepMs);
 }
