@@ -167,6 +167,10 @@ function showMahjongVictory(earnedStars) {
 
     overlay.querySelectorAll('.v-star').forEach((el, idx) => { el.innerText = '⭐'; el.classList.toggle('unearned', idx >= earnedStars); });
     document.getElementById('victory-next-btn').style.display = isLast ? 'none' : 'block';
+        document.getElementById('mj-victory-share').onclick = () => {
+        sfxClick();
+        shareGameScore(`🀄 Я прошёл ${currentMjLevel}-й уровень «${LEVEL_NAMES[currentMjLevel - 1]}» в Маджонге на ${earnedStars}/3 ⭐ в Game Hub!`);
+    };
     overlay.classList.add('active');
 
     sfxVictory(); triggerShake(true); doVibrate([80, 40, 80, 40, 180]);
