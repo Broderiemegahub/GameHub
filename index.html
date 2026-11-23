@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Game Hub</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <script>document.write('<link rel="stylesheet" href="style.css?v=' + Date.now() + '">');</script>9
+    <link rel="stylesheet" href="style.css?v=2.5">
 </head>
 <body>
 
@@ -22,15 +22,45 @@
 
     <!-- ГЛАВНОЕ МЕНЮ -->
     <div id="main-menu">
+        <div id="tg-profile-bar" class="tg-profile">
+            <div class="tg-avatar" id="tg-avatar">👤</div>
+            <div class="tg-user-info">
+                <div class="tg-user-name" id="tg-user-name">Игрок</div>
+                <div class="tg-user-tag" id="tg-user-tag">Game Hub</div>
+            </div>
+            <div class="tg-online-dot" title="Online"></div>
+        </div>
+
         <div class="hub-header">
             <h1 class="hub-title">GAME HUB</h1>
-            <button id="update-badge" class="update-badge" onclick="sfxClick(); openUpdateModal()">v2.2</button>
+            <button id="update-badge" class="update-badge" onclick="sfxClick(); openUpdateModal()">v2.5</button>
         </div>
         <button class="btn" onclick="sfxClick(); showScreen('mines-screen'); initMines();">💣 САПЕР</button>
         <button class="btn" onclick="sfxClick(); showScreen('tetris-screen'); initTetris();">🧱 ТЕТРИС</button>
         <button class="btn btn-gold" onclick="sfxClick(); openMahjongLevels()">🀄 МАДЖОНГ</button>
         <button class="btn btn-toxic" onclick="sfxClick(); openZombieLab()">🧪 ЗОМБИ-ЛАБА</button>
+        <button class="btn btn-gold" onclick="sfxClick(); openLeaderboard('mines')">🏆 ЛИДЕРЫ</button>
         <button class="btn" style="border-color: #94a3b8;" onclick="sfxClick(); openSettings('style')">⚙️ НАСТРОЙКИ</button>
+    </div>
+
+    <!-- ТАБЛИЦА ЛИДЕРОВ -->
+    <div id="leaderboard-screen" class="screen">
+        <div class="top-bar">
+            <button class="btn btn-sm" onclick="sfxClick(); backToMenu()">⬅ Меню</button>
+            <h3 style="margin:0; color:var(--gold);">🏆 ЛИДЕРЫ</h3>
+            <div style="width:65px;"></div>
+        </div>
+
+        <div class="settings-tabs">
+            <div id="lbtab-mines" class="stab-btn active" onclick="switchLbTab('mines')">💣 Сапёр</div>
+            <div id="lbtab-tetris" class="stab-btn" onclick="switchLbTab('tetris')">🧱 Тетрис</div>
+            <div id="lbtab-zlab" class="stab-btn" onclick="switchLbTab('zlab')">🧪 Лаба</div>
+        </div>
+
+        <div id="lb-my-summary" class="lb-summary"></div>
+        <div id="lb-list" class="lb-list"></div>
+
+        <button class="btn btn-share" id="lb-share-btn" style="width: 310px; margin-bottom: 20px;">📤 ПОДЕЛИТЬСЯ В ЧАТЕ</button>
     </div>
 
     <!-- ЕДИНЫЕ НАСТРОЙКИ -->
@@ -103,8 +133,8 @@
             <div class="setting-block">
                 <h3 style="color:#c084fc;">Громкость</h3>
                 <div class="slider-row">
-                    <label><span>🎵 Музыка</span><span id="bgm-vol-val">40%</span></label>
-                    <input type="range" id="bgm-vol" min="0" max="100" value="40" oninput="updateAudioSettings()">
+                    <label><span>🎵 Музыка</span><span id="bgm-vol-val">45%</span></label>
+                    <input type="range" id="bgm-vol" min="0" max="100" value="45" oninput="updateAudioSettings()">
                 </div>
                 <div class="slider-row">
                     <label><span>🔊 Эффекты (SFX)</span><span id="sfx-vol-val">75%</span></label>
@@ -145,7 +175,10 @@
         <div class="top-bar">
             <button class="btn btn-sm" onclick="sfxClick(); backToMenu()">⬅ Меню</button>
             <h3 style="margin:0; color:#4ade80;">🧪 ЗОМБИ-ЛАБА</h3>
-            <button class="btn btn-sm" onclick="sfxClick(); resetZombieLab()" title="Сброс">🗑️</button>
+            <div style="display:flex; gap:6px;">
+                <button class="btn btn-sm btn-share" onclick="sfxClick(); shareZLabScore()" title="Поделиться">📤</button>
+                <button class="btn btn-sm" onclick="sfxClick(); resetZombieLab()" title="Сброс">🗑️</button>
+            </div>
         </div>
         <div class="zlab-stats">
             <div class="zlab-mutagen">🧪 <span id="zlab-val">0</span></div>
@@ -232,7 +265,7 @@
         </div>
     </div>
 
-    <!-- МОДАЛЬНЫЕ ОКНА -->
+    <!-- МОДАЛЬНОЕ ОКНО: САПЁР -->
     <div id="mines-result-overlay" class="modal-overlay">
         <div id="mines-rays" class="victory-rays"></div>
         <div id="mines-result-card" class="victory-card">
@@ -241,12 +274,30 @@
             <div class="victory-sub" id="mines-res-sub">Все мины обезврежены!</div>
             <div class="victory-aura" id="mines-res-badge">⏱ Время: 0с</div>
             <div class="victory-actions">
+                <button class="btn btn-share" id="mines-res-share" style="display:none;">📤 ПОДЕЛИТЬСЯ В ЧАТЕ</button>
                 <button class="btn btn-green" id="mines-res-retry" onclick="sfxClick(); closeMinesOverlayAndRestart()">🔄 СЫГРАТЬ ЕЩЁ</button>
                 <button class="btn btn-sm" onclick="sfxClick(); backToMenu()">🏠 В ГЛАВНОЕ МЕНЮ</button>
             </div>
         </div>
     </div>
 
+    <!-- МОДАЛЬНОЕ ОКНО: ТЕТРИС -->
+    <div id="tetris-result-overlay" class="modal-overlay">
+        <div class="lose-rays"></div>
+        <div class="victory-card lose-card">
+            <div class="victory-trophy">🧱</div>
+            <div class="victory-title">ИГРА ОКОНЧЕНА!</div>
+            <div class="victory-sub" id="tetris-res-sub">Счёт: 0</div>
+            <div class="victory-aura" id="tetris-res-badge">🏆 Лучший рекорд: 0</div>
+            <div class="victory-actions">
+                <button class="btn btn-share" id="tetris-res-share">📤 ПОДЕЛИТЬСЯ В ЧАТЕ</button>
+                <button class="btn btn-green" onclick="sfxClick(); closeTetrisOverlayAndRestart()">🔄 ИГРАТЬ СНОВА</button>
+                <button class="btn btn-sm" onclick="sfxClick(); backToMenu()">🏠 В ГЛАВНОЕ МЕНЮ</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- МОДАЛЬНОЕ ОКНО: МАДЖОНГ -->
     <div id="mj-victory-overlay" class="modal-overlay">
         <div class="victory-rays"></div>
         <div class="victory-card">
@@ -260,26 +311,27 @@
             </div>
             <div class="victory-aura" id="victory-aura">🔥 +1000 AURA • MEGA CLEAR!</div>
             <div class="victory-actions">
+                <button class="btn btn-share" id="mj-victory-share">📤 ПОДЕЛИТЬСЯ В ЧАТЕ</button>
                 <button class="btn btn-green" id="victory-next-btn" onclick="sfxClick(); goNextMahjongLevel()">⚡ СЛЕДУЮЩИЙ УРОВЕНЬ</button>
                 <button class="btn btn-sm" onclick="sfxClick(); closeVictoryAndOpenLevels()">📋 К СПИСКУ УРОВНЕЙ</button>
             </div>
         </div>
     </div>
 
+    <!-- ОКНО ОБНОВЛЕНИЯ -->
     <div id="update-modal" class="modal-overlay">
         <div class="victory-card" style="animation: victorySlam 0.35s ease; border-color: var(--accent);">
             <div style="font-size: 2.8rem; line-height: 1;">🚀</div>
-            <div class="victory-title" id="update-modal-title" style="font-size: 1.5rem;">ОБНОВЛЕНИЕ v2.2</div>
+            <div class="victory-title" id="update-modal-title" style="font-size: 1.5rem;">ОБНОВЛЕНИЕ v2.5</div>
             <ul class="changelog-list" id="changelog-list"></ul>
             <button class="btn btn-green" style="width: 100%;" onclick="sfxClick(); closeUpdateModal()">🔥 КРУТО!</button>
         </div>
     </div>
-<script>
-    const v = Date.now();
-    ['core.js', 'zlab.js', 'mines.js', 'tetris.js', 'mahjong.js'].forEach(file => {
-        document.write(`<script src="${file}?v=${v}"><\/script>`);
-    });
-</script>
 
+    <script src="core.js?v=2.5"></script>
+    <script src="zlab.js?v=2.5"></script>
+    <script src="mines.js?v=2.5"></script>
+    <script src="tetris.js?v=2.5"></script>
+    <script src="mahjong.js?v=2.5"></script>
 </body>
 </html>
