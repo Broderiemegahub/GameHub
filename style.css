@@ -398,3 +398,31 @@ body.minimal-mode .victory-card { background: #1c1f26; border: 1.5px solid rgba(
 body.minimal-mode .victory-title { background: none; -webkit-text-fill-color: #f8fafc; animation: none; }
 body.minimal-mode .victory-trophy { animation: none; filter: none; }
 body.minimal-mode .victory-aura { animation: none; background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.15); color: #cbd5e1; }
+/* --- АДМИН-ПАНЕЛЬ --- */
+.admin-info-bar {
+    width: 310px; background: var(--panel); border: 1px solid rgba(244, 63, 94, 0.4);
+    border-radius: 12px; padding: 8px 12px; margin-bottom: 10px;
+    font-size: 0.78rem; color: #fda4af; font-family: monospace; text-align: center;
+}
+.admin-card {
+    background: var(--panel); border: 1.5px solid rgba(255,255,255,0.12);
+    border-radius: 14px; padding: 11px 12px;
+    display: flex; flex-direction: column; gap: 8px;
+}
+.admin-card.is-banned {
+    border-color: #ef4444; background: rgba(127, 29, 29, 0.35);
+}
+.admin-card-top {
+    display: flex; justify-content: space-between; align-items: center; gap: 8px;
+}
+.admin-scores {
+    display: flex; gap: 8px; flex-wrap: wrap;
+    font-size: 0.74rem; color: #cbd5e1; font-family: monospace;
+    background: rgba(15, 23, 42, 0.6); padding: 6px 8px; border-radius: 8px;
+}
+.admin-actions {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+}
+.btn-xs {
+    padding: 7px 8px; font-size: 0.78rem; border-radius: 10px; font-weight: 800;
+}
