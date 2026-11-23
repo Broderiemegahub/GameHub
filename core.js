@@ -1,12 +1,12 @@
 // ==================== НАСТРОЙКИ БАЗЫ И АДМИНКИ ====================
 const FIREBASE_URL = 'https://gamehubonline-7b970-default-rtdb.firebaseio.com';
-const ADMIN_PIN = '20100420Ki'; // Пароль от админ-панели (поменяй на свой)
+const ADMIN_PIN = '2010042Ki'; // Пароль от админ-панели (поменяй на свой)
 
 // ==================== СИСТЕМА ОБНОВЛЕНИЙ ====================
-const APP_VERSION = '2.0';
+const APP_VERSION = '2.1';
 const CHANGELOG = [
-    '🛡️ Защита от автокликеров в Зомби-лабе',
-    '🏆 Таблица лидеров с реальными игроками из Telegram'
+    '📋 Все игроки теперь сохраняются в базе данных
+    '🛡️ Защита от автокликеров в Зомби-лабе'
 ];
 
 function initUpdateBadge() {
@@ -84,7 +84,7 @@ function shareGameScore(text) {
     }
 }
 
-// ==================== СИСТЕМА БАНА И ПРОВЕРКА СТАТУСА ====================
+// ==================== РЕГИСТРАЦИЯ ИГРОКА И СИСТЕМА БАНА ====================
 function getPlayerId() {
     if (rawTgUser?.id) return 'tg_' + rawTgUser.id;
     let fallbackId = null;
@@ -99,6 +99,21 @@ function getPlayerId() {
 const myPlayerId = getPlayerId();
 let isUserBanned = false;
 let isBanSyncing = false;
+
+function registerPlayerInCloud() {
+    const baseUrl = FIREBASE_URL.replace(/\/+$/, '');
+    if (!baseUrl.startsWith('http')) return;
+    fetch(`${baseUrl}/players/${myPlayerId}.json`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            name: tgUser.name,
+            tag: tgUser.username,
+            lastSeen: Date.now()
+        })
+    }).catch(() => {});
+}
+registerPlayerInCloud();
 
 function getLocalBan() {
     try {
@@ -134,20 +149,27 @@ function triggerLocalBanScreen(reason) {
 }
 
 function clearLocalBanScreen() {
+    const wasBanned = isUserBanned || !!getLocalBan();
     isUserBanned = false;
     setLocalBan(null);
     setAdminFails(0);
+
     const overlay = document.getElementById('ban-overlay');
     if (overlay) {
         overlay.classList.remove('active');
         overlay.style.display = 'none';
     }
-    const menu = document.getElementById('main-menu');
-    if (menu) menu.style.display = 'flex';
+
+    if (wasBanned) {
+        document.querySelectorAll('.screen').forEach(s => s.style.display = 'none');
+        const menu = document.getElementById('main-menu');
+        if (menu) menu.style.display = 'flex';
+        syncExistingRecords();
+    }
 }
 
 async function banCurrentPlayer(reason) {
-    setLocalBan({ banned: true, reason: reason, synced: false });
+    setLocalBan({ banned: true, reason: reason });
     triggerLocalBanScreen(reason);
 
     const baseUrl = FIREBASE_URL.replace(/\/+$/, '');
@@ -155,7 +177,7 @@ async function banCurrentPlayer(reason) {
 
     isBanSyncing = true;
     try {
-        const [banRes] = await Promise.all([
+        await Promise.all([
             fetch(`${baseUrl}/banned/${myPlayerId}.json`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
@@ -167,18 +189,20 @@ async function banCurrentPlayer(reason) {
                     date: Date.now()
                 })
             }),
+            fetch(`${baseUrl}/players/${myPlayerId}.json`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: tgUser.name, tag: tgUser.username, lastSeen: Date.now() })
+            }),
             fetch(`${baseUrl}/leaderboard/mines/${myPlayerId}.json`, { method: 'DELETE' }),
             fetch(`${baseUrl}/leaderboard/tetris/${myPlayerId}.json`, { method: 'DELETE' }),
             fetch(`${baseUrl}/leaderboard/zlab/${myPlayerId}.json`, { method: 'DELETE' })
         ]);
-        if (banRes && banRes.ok) {
-            setLocalBan({ banned: true, reason: reason, synced: true });
-        }
     } catch {}
     isBanSyncing = false;
 }
 
-// Сразу проверяем локальный бан при запуске (без ожидания интернета)
+// Сразу проверяем локальный бан при старте
 const initialLocalBan = getLocalBan();
 if (initialLocalBan && initialLocalBan.banned) {
     triggerLocalBanScreen(initialLocalBan.reason || 'Использование читов / автокликера');
@@ -190,28 +214,25 @@ async function checkBanStatus() {
     if (!baseUrl.startsWith('http')) return;
 
     try {
-        const res = await fetch(`${baseUrl}/banned/${myPlayerId}.json`);
+        const res = await fetch(`${baseUrl}/banned/${myPlayerId}.json?t=${Date.now()}`, { cache: 'no-store' });
         if (!res.ok) return;
         const banInfo = await res.json();
-        const localBan = getLocalBan();
 
         if (banInfo && banInfo.banned) {
             const reason = banInfo.reason || 'Использование читов / автокликера';
-            setLocalBan({ banned: true, reason: reason, synced: true });
+            setLocalBan({ banned: true, reason: reason });
             triggerLocalBanScreen(reason);
-        } else if (localBan && localBan.banned) {
-            if (!localBan.synced) {
-                // Локальный бан ещё не долетел до облака — отправляем повторно
-                banCurrentPlayer(localBan.reason || 'Попытка взлома админ-панели');
-            } else {
-                // Админ удалил бан в базе — разбаниваем игрока
-                clearLocalBanScreen();
-            }
+        } else {
+            // Если в облаке бана нет — мгновенно разблокируем интерфейс и кнопки
+            clearLocalBanScreen();
         }
     } catch {}
 }
 checkBanStatus();
-setInterval(checkBanStatus, 25000);
+setInterval(checkBanStatus, 10000);
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') checkBanStatus();
+});
 
 // ==================== РЕКОРДЫ И ОБЛАЧНАЯ ТАБЛИЦА ЛИДЕРОВ ====================
 let hubRecords = loadHubRecords();
@@ -319,9 +340,10 @@ async function switchLbTab(tab, silent = false) {
 
     if (baseUrl.startsWith('http')) {
         try {
+            const ts = Date.now();
             const [resScores, resBanned] = await Promise.all([
-                fetch(`${baseUrl}/leaderboard/${tab}.json`),
-                fetch(`${baseUrl}/banned.json`)
+                fetch(`${baseUrl}/leaderboard/${tab}.json?t=${ts}`, { cache: 'no-store' }),
+                fetch(`${baseUrl}/banned.json?t=${ts}`, { cache: 'no-store' })
             ]);
             const rawData = await resScores.json();
             const rawBanned = await resBanned.json();
@@ -451,15 +473,34 @@ async function renderAdminList() {
 
     const baseUrl = FIREBASE_URL.replace(/\/+$/, '');
     try {
-        const [lbRes, banRes] = await Promise.all([
-            fetch(`${baseUrl}/leaderboard.json`),
-            fetch(`${baseUrl}/banned.json`)
+        const ts = Date.now();
+        const [playersRes, lbRes, banRes] = await Promise.all([
+            fetch(`${baseUrl}/players.json?t=${ts}`, { cache: 'no-store' }),
+            fetch(`${baseUrl}/leaderboard.json?t=${ts}`, { cache: 'no-store' }),
+            fetch(`${baseUrl}/banned.json?t=${ts}`, { cache: 'no-store' })
         ]);
+        const playersData = (await playersRes.json()) || {};
         const lbData = (await lbRes.json()) || {};
         const banData = (await banRes.json()) || {};
 
         const playersMap = {};
 
+        // 1. Все зарегистрированные игроки (включая разбаненных и без рекордов)
+        Object.entries(playersData).forEach(([id, info]) => {
+            if (info && typeof info === 'object') {
+                playersMap[id] = {
+                    id,
+                    name: info.name || 'Игрок',
+                    tag: info.tag || '',
+                    mines: null,
+                    tetris: 0,
+                    zlab: 0,
+                    banned: false
+                };
+            }
+        });
+
+        // 2. Рекорды из таблицы лидеров
         ['mines', 'tetris', 'zlab'].forEach(game => {
             const gObj = lbData[game] || {};
             Object.entries(gObj).forEach(([id, info]) => {
@@ -472,12 +513,15 @@ async function renderAdminList() {
             });
         });
 
+        // 3. Забаненные игроки
         Object.entries(banData).forEach(([id, info]) => {
             if (info && info.banned) {
                 if (!playersMap[id]) {
                     playersMap[id] = { id, name: info.name || 'Забаненный', tag: info.tag || '', mines: null, tetris: 0, zlab: 0, banned: true };
                 } else {
                     playersMap[id].banned = true;
+                    if (info.name) playersMap[id].name = info.name;
+                    if (info.tag) playersMap[id].tag = info.tag;
                 }
             }
         });
@@ -546,7 +590,14 @@ async function adminToggleBan(playerId, name, tag, currentlyBanned) {
     const baseUrl = FIREBASE_URL.replace(/\/+$/, '');
 
     if (currentlyBanned) {
-        await fetch(`${baseUrl}/banned/${playerId}.json`, { method: 'DELETE' }).catch(() => {});
+        await Promise.all([
+            fetch(`${baseUrl}/banned/${playerId}.json`, { method: 'DELETE' }),
+            fetch(`${baseUrl}/players/${playerId}.json`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, tag, lastSeen: Date.now() })
+            })
+        ]).catch(() => {});
         if (playerId === myPlayerId) clearLocalBanScreen();
     } else {
         await Promise.all([
@@ -554,6 +605,11 @@ async function adminToggleBan(playerId, name, tag, currentlyBanned) {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ banned: true, name, tag, reason: 'Читы / Автокликер', date: Date.now() })
+            }),
+            fetch(`${baseUrl}/players/${playerId}.json`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, tag, lastSeen: Date.now() })
             }),
             fetch(`${baseUrl}/leaderboard/mines/${playerId}.json`, { method: 'DELETE' }),
             fetch(`${baseUrl}/leaderboard/tetris/${playerId}.json`, { method: 'DELETE' }),
