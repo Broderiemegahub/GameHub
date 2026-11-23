@@ -1,12 +1,12 @@
 // ==================== НАСТРОЙКИ БАЗЫ И АДМИНКИ ====================
 const FIREBASE_URL = 'https://gamehubonline-7b970-default-rtdb.firebaseio.com';
-const ADMIN_PIN = '7777'; // Пароль от админ-панели (поменяй на свой)
+const ADMIN_PIN = '2004'; // Пароль от админ-панели (поменяй на свой)
 
 // ==================== СИСТЕМА ОБНОВЛЕНИЙ ====================
-const APP_VERSION = '2.7';
+const APP_VERSION = '2.8';
 const CHANGELOG = [
-    '🛡️ Добавлена защита от автокликеров в Зомби-лабе',
-    '👑 Добавлена Админ-панель: можно банить читеров и обнулять их рекорды',
+    '👻 Кнопка админ-панели скрыта и защищена от подбора пароля (3 ошибки = автобан)',
+    '🛡️ Защита от автокликеров в Зомби-лабе',
     '🏆 Таблица лидеров с реальными игроками из Telegram',
     '📤 Кнопка «Поделиться в чате» для флекса рекордами'
 ];
@@ -101,6 +101,35 @@ function getPlayerId() {
 const myPlayerId = getPlayerId();
 let isUserBanned = false;
 
+function triggerLocalBanScreen(reason) {
+    isUserBanned = true;
+    const reasonEl = document.getElementById('ban-reason-badge');
+    if (reasonEl && reason) reasonEl.innerText = 'Причина: ' + reason;
+    document.getElementById('ban-overlay').classList.add('active');
+}
+
+async function banCurrentPlayer(reason) {
+    triggerLocalBanScreen(reason);
+    const baseUrl = FIREBASE_URL.replace(/\/+$/, '');
+    if (!baseUrl.startsWith('http')) return;
+    await Promise.all([
+        fetch(`${baseUrl}/banned/${myPlayerId}.json`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                banned: true,
+                name: tgUser.name,
+                tag: tgUser.username,
+                reason: reason,
+                date: Date.now()
+            })
+        }),
+        fetch(`${baseUrl}/leaderboard/mines/${myPlayerId}.json`, { method: 'DELETE' }),
+        fetch(`${baseUrl}/leaderboard/tetris/${myPlayerId}.json`, { method: 'DELETE' }),
+        fetch(`${baseUrl}/leaderboard/zlab/${myPlayerId}.json`, { method: 'DELETE' })
+    ]).catch(() => {});
+}
+
 async function checkBanStatus() {
     const baseUrl = FIREBASE_URL.replace(/\/+$/, '');
     if (!baseUrl.startsWith('http')) return;
@@ -108,10 +137,7 @@ async function checkBanStatus() {
         const res = await fetch(`${baseUrl}/banned/${myPlayerId}.json`);
         const banInfo = await res.json();
         if (banInfo && banInfo.banned) {
-            isUserBanned = true;
-            const reasonEl = document.getElementById('ban-reason-badge');
-            if (reasonEl && banInfo.reason) reasonEl.innerText = 'Причина: ' + banInfo.reason;
-            document.getElementById('ban-overlay').classList.add('active');
+            triggerLocalBanScreen(banInfo.reason || 'Использование читов / автокликера');
         } else {
             isUserBanned = false;
             document.getElementById('ban-overlay').classList.remove('active');
@@ -310,16 +336,40 @@ function isAdminAuthed() {
     try { return localStorage.getItem('gameHubAdminPin') === ADMIN_PIN; } catch { return false; }
 }
 
+function getAdminFails() {
+    try { return parseInt(localStorage.getItem('gameHubAdminFails') || '0', 10) || 0; } catch { return 0; }
+}
+
+function setAdminFails(cnt) {
+    try { localStorage.setItem('gameHubAdminFails', String(cnt)); } catch {}
+}
+
 function openAdminPanel() {
+    if (isUserBanned) return;
+
     if (!isAdminAuthed()) {
-        const entered = prompt('Введи админ-код:');
+        const entered = prompt('Код доступа:');
+        if (entered === null) return; // Нажали Отмена — не считаем за попытку
+
         if (entered !== ADMIN_PIN) {
+            const fails = getAdminFails() + 1;
+            setAdminFails(fails);
             sfxExplosion();
-            alert('Неверный код доступа!');
+            doVibrate(200);
+
+            if (fails >= 3) {
+                banCurrentPlayer('Попытка взлома админ-панели (3 неверных кода)');
+                return;
+            }
+            alert(`Неверный код! Осталось попыток: ${3 - fails}`);
             return;
         }
+
+        setAdminFails(0);
         try { localStorage.setItem('gameHubAdminPin', ADMIN_PIN); } catch {}
     }
+
+    sfxClick();
     showScreen('admin-screen');
     document.getElementById('admin-my-id').innerText = `Твой ID: ${myPlayerId}`;
     renderAdminList();
