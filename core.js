@@ -3,7 +3,7 @@ const FIREBASE_URL = 'https://gamehubonline-7b970-default-rtdb.firebaseio.com';
 const ADMIN_PIN = '20100420Ki';
 
 // ==================== СИСТЕМА ОБНОВЛЕНИЙ ====================
-const APP_VERSION = '2.1';
+const APP_VERSION = '2.2';
 const CHANGELOG = [
     '✅ Исправлен запуск скриптов и возвращена синхронизация профиля Telegram',
     '🔓 Разбаненные игроки сразу получают доступ ко всем кнопкам',
