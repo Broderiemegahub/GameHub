@@ -1,5 +1,5 @@
 // ==================== СИСТЕМА ОБНОВЛЕНИЙ ====================
-const APP_VERSION = '1.2';
+const APP_VERSION = '1.3';
 const CHANGELOG = [
     '🟩 Добавлены темы из Minecraft (Sweden и Wet Hands) на мягком пианино с эхом',
     '🟥 Добавлена классическая тема лобби из Roblox',
