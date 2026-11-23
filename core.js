@@ -1,10 +1,10 @@
 // ==================== СИСТЕМА ОБНОВЛЕНИЙ ====================
-const APP_VERSION = '1.3';
+const APP_VERSION = '2.5';
 const CHANGELOG = [
-    '🟩 Добавлены темы из Minecraft (Sweden и Wet Hands) на мягком пианино с эхом',
-    '🟥 Добавлена классическая тема лобби из Roblox',
-    '🌌 Сохранён трек Interstellar Vibe',
-    '🎧 Добавлена загрузка своего MP3-трека (music.mp3 из GitHub или с телефона)'
+    '👤 Профиль Telegram (имя и аватар) прямо в главном меню',
+    '🏆 Таблица лидеров по каждой игре (Сапёр, Тетрис и Зомби-лаба)',
+    '📤 Кнопка «Поделиться в чате» для флекса рекордами в Telegram',
+    '🧱 Новый неоновый экран конца игры в Тетрисе'
 ];
 
 function initUpdateBadge() {
@@ -35,12 +35,197 @@ function closeUpdateModal() {
 
 initUpdateBadge();
 
-// ==================== TELEGRAM MINI APP ====================
-if (window.Telegram && window.Telegram.WebApp) {
-    const tg = window.Telegram.WebApp;
-    tg.ready();
-    tg.expand();
-    if (tg.disableVerticalSwipes) tg.disableVerticalSwipes();
+// ==================== TELEGRAM MINI APP И ПРОФИЛЬ ====================
+const tgWebApp = (window.Telegram && window.Telegram.WebApp) ? window.Telegram.WebApp : null;
+if (tgWebApp) {
+    tgWebApp.ready();
+    tgWebApp.expand();
+    if (tgWebApp.disableVerticalSwipes) tgWebApp.disableVerticalSwipes();
+}
+
+const rawTgUser = tgWebApp?.initDataUnsafe?.user;
+const tgUser = {
+    name: rawTgUser ? [rawTgUser.first_name, rawTgUser.last_name].filter(Boolean).join(' ') : 'Игрок',
+    username: rawTgUser?.username ? '@' + rawTgUser.username : 'Telegram Player',
+    photo: rawTgUser?.photo_url || ''
+};
+
+function initTgProfile() {
+    const nameEl = document.getElementById('tg-user-name');
+    const tagEl = document.getElementById('tg-user-tag');
+    const avatarEl = document.getElementById('tg-avatar');
+    if (!nameEl || !avatarEl) return;
+
+    nameEl.innerText = tgUser.name;
+    tagEl.innerText = tgUser.username;
+
+    const initial = (tgUser.name.trim()[0] || '👤').toUpperCase();
+    if (tgUser.photo) {
+        const img = document.createElement('img');
+        img.src = tgUser.photo;
+        img.onerror = () => { avatarEl.innerHTML = initial; };
+        avatarEl.innerHTML = '';
+        avatarEl.appendChild(img);
+    } else {
+        avatarEl.innerText = initial;
+    }
+}
+initTgProfile();
+
+function shareGameScore(text) {
+    const appUrl = 'https://broderiemegahub.github.io/GameHub/';
+    const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(appUrl)}&text=${encodeURIComponent(text)}`;
+    if (tgWebApp && tgWebApp.openTelegramLink) {
+        tgWebApp.openTelegramLink(shareUrl);
+    } else {
+        window.open(shareUrl, '_blank');
+    }
+}
+
+// ==================== РЕКОРДЫ И ТАБЛИЦА ЛИДЕРОВ ====================
+let hubRecords = loadHubRecords();
+let currentLbTab = 'mines';
+
+function loadHubRecords() {
+    let data = { mines: null, tetris: 0, zlab: 0 };
+    try {
+        const raw = localStorage.getItem('gameHubRecords');
+        if (raw) data = { ...data, ...JSON.parse(raw) };
+    } catch {}
+    try {
+        const zSave = JSON.parse(localStorage.getItem('zombieLabSave') || 'null');
+        if (zSave && zSave.total > data.zlab) data.zlab = Math.floor(zSave.total);
+    } catch {}
+    return data;
+}
+
+function saveHubRecords() {
+    try { localStorage.setItem('gameHubRecords', JSON.stringify(hubRecords)); } catch {}
+}
+
+function updateRecord(game, val) {
+    if (game === 'mines') {
+        if (val > 0 && (hubRecords.mines === null || val < hubRecords.mines)) {
+            hubRecords.mines = val;
+            saveHubRecords();
+            return true;
+        }
+    } else if (game === 'tetris') {
+        if (val > hubRecords.tetris) {
+            hubRecords.tetris = val;
+            saveHubRecords();
+            return true;
+        }
+    } else if (game === 'zlab') {
+        if (val > hubRecords.zlab) {
+            hubRecords.zlab = Math.floor(val);
+            saveHubRecords();
+            return true;
+        }
+    }
+    return false;
+}
+
+function formatCompact(n) {
+    n = Math.floor(Math.max(0, n));
+    if (n >= 1e9) return (n / 1e9).toFixed(2) + 'B';
+    if (n >= 1e6) return (n / 1e6).toFixed(2) + 'M';
+    if (n >= 1e3) return (n / 1e3).toFixed(1) + 'K';
+    return String(n);
+}
+
+const LB_RIVALS = {
+    mines: [
+        { name: 'ShadowMiner', tag: '@miner_pro', val: 14 },
+        { name: 'CyberFox',    tag: '@cfox',      val: 22 },
+        { name: 'NeonPulse',   tag: '@npulse',    val: 31 },
+        { name: 'Vortex',      tag: '@vtx99',     val: 44 },
+        { name: 'PixelKnight', tag: '@pknight',   val: 58 },
+        { name: 'Rookie_01',   tag: '@rookie',    val: 80 }
+    ],
+    tetris: [
+        { name: 'BlockGod',    tag: '@tetromaster', val: 4800 },
+        { name: 'CyberFox',    tag: '@cfox',        val: 3200 },
+        { name: 'NeonPulse',   tag: '@npulse',      val: 2100 },
+        { name: 'Vortex',      tag: '@vtx99',       val: 1400 },
+        { name: 'PixelKnight', tag: '@pknight',     val: 800 },
+        { name: 'Rookie_01',   tag: '@rookie',      val: 300 }
+    ],
+    zlab: [
+        { name: 'Dr. Omega',   tag: '@biohazard', val: 2500000 },
+        { name: 'MutantKing',  tag: '@zking',     val: 500000 },
+        { name: 'CyberFox',    tag: '@cfox',      val: 100000 },
+        { name: 'NeonPulse',   tag: '@npulse',    val: 25000 },
+        { name: 'Vortex',      tag: '@vtx99',     val: 5000 },
+        { name: 'Rookie_01',   tag: '@rookie',    val: 500 }
+    ]
+};
+
+function openLeaderboard(tab = 'mines') {
+    showScreen('leaderboard-screen');
+    switchLbTab(tab, true);
+}
+
+function switchLbTab(tab, silent = false) {
+    if (!silent) sfxClick();
+    currentLbTab = tab;
+    ['mines', 'tetris', 'zlab'].forEach(t => {
+        document.getElementById('lbtab-' + t).classList.toggle('active', t === tab);
+    });
+
+    const list = LB_RIVALS[tab].map(x => ({ ...x, isMe: false }));
+    const myVal = hubRecords[tab];
+    const hasScore = tab === 'mines' ? (myVal !== null && myVal > 0) : (myVal > 0);
+
+    if (hasScore) {
+        list.push({ name: tgUser.name + ' (Вы)', tag: tgUser.username, val: myVal, isMe: true });
+    }
+
+    if (tab === 'mines') list.sort((a, b) => a.val - b.val);
+    else list.sort((a, b) => b.val - a.val);
+
+    const summaryEl = document.getElementById('lb-my-summary');
+    const shareBtn = document.getElementById('lb-share-btn');
+
+    if (hasScore) {
+        const myRank = list.findIndex(x => x.isMe) + 1;
+        const valText = tab === 'mines' ? `${myVal} сек`
+                      : tab === 'tetris' ? `${myVal} очков`
+                      : `${formatCompact(myVal)} 🧪`;
+        summaryEl.innerHTML = `<span>Твоё место: #${myRank}</span><span>Рекорд: ${valText}</span>`;
+
+        const shareText = tab === 'mines' ? `💣 Мой рекорд в Сапёре (Game Hub) — ${myVal} сек (#${myRank} в топе)! Попробуй побить!`
+                        : tab === 'tetris' ? `🧱 Мой рекорд в Тетрисе (Game Hub) — ${myVal} очков (#${myRank} в топе)! Сможешь больше?`
+                        : `🧪 Я нафармил ${formatCompact(myVal)} мутагена в Зомби-Лабе (#${myRank} в топе)! Залетай!`;
+        shareBtn.onclick = () => { sfxClick(); shareGameScore(shareText); };
+    } else {
+        summaryEl.innerHTML = `<span>Рекорд ещё не установлен</span><span>Сыграй катку!</span>`;
+        shareBtn.onclick = () => { sfxClick(); shareGameScore('🎮 Залетай в Game Hub — тут Сапёр, Тетрис, Маджонг и Зомби-Лаба!'); };
+    }
+
+    const listEl = document.getElementById('lb-list');
+    listEl.innerHTML = '';
+    const medals = ['🥇', '🥈', '🥉'];
+
+    list.forEach((item, idx) => {
+        const row = document.createElement('div');
+        row.className = 'lb-row' + (item.isMe ? ' is-me' : '');
+        const rankStr = medals[idx] || `#${idx + 1}`;
+        const scoreStr = tab === 'mines' ? `⏱ ${item.val}с`
+                       : tab === 'tetris' ? `${item.val} pts`
+                       : `🧪 ${formatCompact(item.val)}`;
+        row.innerHTML = `
+            <div class="lb-left">
+                <div class="lb-rank">${rankStr}</div>
+                <div style="min-width:0;">
+                    <div class="lb-name">${item.name}</div>
+                    <div class="lb-tag">${item.tag}</div>
+                </div>
+            </div>
+            <div class="lb-score">${scoreStr}</div>
+        `;
+        listEl.appendChild(row);
+    });
 }
 
 // ==================== ЕДИНЫЕ НАСТРОЙКИ ====================
@@ -62,12 +247,11 @@ function switchSettingsTab(tab, silent = false) {
     });
 }
 
-// ==================== АУДИО ДВИЖОК (MINECRAFT, ROBLOX, INTERSTELLAR + MP3) ====================
+// ==================== АУДИО ДВИЖОК ====================
 const AudioCtx = window.AudioContext || window.webkitAudioContext;
 let audioCtx = null, masterComp = null, delayNode = null;
 let bgmTimer = null, bgmStep = 0;
 
-// Плеер для своего MP3 (из репозитория music.mp3 или с телефона)
 const customAudioEl = new Audio();
 customAudioEl.loop = true;
 let customAudioUrl = null;
@@ -120,7 +304,6 @@ function saveAudioPrefs() {
 function ensureAudio() {
     if (!audioCtx) {
         audioCtx = new AudioCtx();
-
         masterComp = audioCtx.createDynamicsCompressor();
         masterComp.threshold.value = -14;
         masterComp.knee.value = 14;
@@ -170,21 +353,14 @@ function playNoise(dur, vol = 0.15, filterFreq = 1000, filterType = 'highpass') 
     noise.connect(filter); filter.connect(gain); gain.connect(masterComp); noise.start(now);
 }
 
-// Мягкое тёплое электропианино / пад с реверберацией
 function playWarmPiano(freq, dur = 0.8, vol = 0.25, echo = true) {
     if (!audioCtx || vol <= 0.001 || !freq) return;
     const now = audioCtx.currentTime;
+    const oscMain = audioCtx.createOscillator(), oscSub = audioCtx.createOscillator();
+    const filter = audioCtx.createBiquadFilter(), gain = audioCtx.createGain();
 
-    const oscMain = audioCtx.createOscillator();
-    const oscSub = audioCtx.createOscillator();
-    const filter = audioCtx.createBiquadFilter();
-    const gain = audioCtx.createGain();
-
-    oscMain.type = 'triangle';
-    oscMain.frequency.setValueAtTime(freq, now);
-
-    oscSub.type = 'sine';
-    oscSub.frequency.setValueAtTime(freq, now);
+    oscMain.type = 'triangle'; oscMain.frequency.setValueAtTime(freq, now);
+    oscSub.type = 'sine'; oscSub.frequency.setValueAtTime(freq, now);
 
     filter.type = 'lowpass';
     filter.frequency.setValueAtTime(1600, now);
@@ -194,23 +370,18 @@ function playWarmPiano(freq, dur = 0.8, vol = 0.25, echo = true) {
     gain.gain.linearRampToValueAtTime(vol, now + 0.025);
     gain.gain.exponentialRampToValueAtTime(0.001, now + dur);
 
-    oscMain.connect(filter);
-    oscSub.connect(filter);
-    filter.connect(gain);
-    gain.connect(masterComp);
+    oscMain.connect(filter); oscSub.connect(filter);
+    filter.connect(gain); gain.connect(masterComp);
 
     if (echo && delayNode) {
         const send = audioCtx.createGain();
         send.gain.value = 0.38;
-        gain.connect(send);
-        send.connect(delayNode);
+        gain.connect(send); send.connect(delayNode);
     }
-
     oscMain.start(now); oscSub.start(now);
     oscMain.stop(now + dur + 0.04); oscSub.stop(now + dur + 0.04);
 }
 
-// --- ЗВУКОВЫЕ ЭФФЕКТЫ (SFX) ---
 function sfxClick() { ensureAudio(); playTone(520, 0.06, 'triangle', 0.16 * audioPrefs.sfxVol, 780); }
 function sfxPop() { ensureAudio(); playTone(360, 0.08, 'sine', 0.18 * audioPrefs.sfxVol, 620); }
 function sfxFlag() { ensureAudio(); playTone(680, 0.07, 'square', 0.1 * audioPrefs.sfxVol, 920); }
@@ -246,7 +417,6 @@ function sfxAlarm() {
     setTimeout(() => playTone(880, 0.16, 'sawtooth', 0.18 * audioPrefs.sfxVol, 440), 200);
 }
 
-// --- СЕКВЕНСОР ФОНОВОЙ МУЗЫКИ ---
 function startBgm() {
     stopBgm();
     if (audioPrefs.track === 'none' || audioPrefs.bgmVol <= 0.01) return;
@@ -254,23 +424,14 @@ function startBgm() {
     if (audioPrefs.track === 'custom') {
         customAudioEl.volume = Math.min(1, audioPrefs.bgmVol);
         customAudioEl.src = customAudioUrl || 'music.mp3';
-        customAudioEl.play().catch(() => {
-            // Если music.mp3 нет на GitHub, предлагаем выбрать файл с телефона
-            customFileInput.click();
-        });
+        customAudioEl.play().catch(() => customFileInput.click());
         return;
     }
 
     ensureAudio();
     bgmStep = 0;
-
-    const bpmMap = {
-        mc_sweden: 76,
-        mc_wethands: 84,
-        roblox_chill: 108,
-        space: 105
-    };
-    const stepMs = (60000 / (bpmMap[audioPrefs.track] || 90)) / 2; // 8-е ноты
+    const bpmMap = { mc_sweden: 76, mc_wethands: 84, roblox_chill: 108, space: 105 };
+    const stepMs = (60000 / (bpmMap[audioPrefs.track] || 90)) / 2;
 
     bgmTimer = setInterval(() => {
         if (!audioCtx || audioCtx.state !== 'running') return;
@@ -278,72 +439,29 @@ function startBgm() {
         const s = bgmStep % 32;
 
         if (audioPrefs.track === 'mc_sweden') {
-            // C418 - Sweden (Dmaj7 -> Bm7 -> Gmaj7 -> A6)
-            const mel = [
-                369.99, 440.00, 554.37, 659.25, 587.33, 0, 440.00, 0,
-                369.99, 440.00, 587.33, 554.37, 440.00, 0, 369.99, 0,
-                392.00, 493.88, 587.33, 739.99, 659.25, 0, 587.33, 0,
-                329.63, 440.00, 554.37, 659.25, 554.37, 0, 440.00, 0
-            ];
-            const bass = [
-                146.83, 0, 0, 0, 220.00, 0, 0, 0,
-                123.47, 0, 0, 0, 185.00, 0, 0, 0,
-                98.00,  0, 0, 0, 146.83, 0, 0, 0,
-                110.00, 0, 0, 0, 164.81, 0, 0, 0
-            ];
+            const mel = [369.99,440.00,554.37,659.25,587.33,0,440.00,0, 369.99,440.00,587.33,554.37,440.00,0,369.99,0, 392.00,493.88,587.33,739.99,659.25,0,587.33,0, 329.63,440.00,554.37,659.25,554.37,0,440.00,0];
+            const bass = [146.83,0,0,0,220.00,0,0,0, 123.47,0,0,0,185.00,0,0,0, 98.00,0,0,0,146.83,0,0,0, 110.00,0,0,0,164.81,0,0,0];
             if (mel[s]) playWarmPiano(mel[s], 1.15, v * 0.30, true);
             if (bass[s]) playWarmPiano(bass[s], 1.6, v * 0.28, false);
-        }
-        else if (audioPrefs.track === 'mc_wethands') {
-            // C418 - Wet Hands (A major)
-            const mel = [
-                440.00, 554.37, 659.25, 739.99, 659.25, 554.37, 493.88, 554.37,
-                587.33, 739.99, 880.00, 830.61, 739.99, 659.25, 554.37, 493.88,
-                440.00, 554.37, 659.25, 880.00, 830.61, 659.25, 554.37, 493.88,
-                369.99, 440.00, 554.37, 659.25, 554.37, 493.88, 440.00, 0
-            ];
-            const bass = [
-                110.00, 0, 164.81, 0, 110.00, 0, 164.81, 0,
-                146.83, 0, 220.00, 0, 146.83, 0, 220.00, 0,
-                92.50,  0, 138.59, 0, 92.50,  0, 138.59, 0,
-                164.81, 0, 246.94, 0, 164.81, 0, 246.94, 0
-            ];
+        } else if (audioPrefs.track === 'mc_wethands') {
+            const mel = [440.00,554.37,659.25,739.99,659.25,554.37,493.88,554.37, 587.33,739.99,880.00,830.61,739.99,659.25,554.37,493.88, 440.00,554.37,659.25,880.00,830.61,659.25,554.37,493.88, 369.99,440.00,554.37,659.25,554.37,493.88,440.00,0];
+            const bass = [110.00,0,164.81,0,110.00,0,164.81,0, 146.83,0,220.00,0,146.83,0,220.00,0, 92.50,0,138.59,0,92.50,0,138.59,0, 164.81,0,246.94,0,164.81,0,246.94,0];
             if (mel[s]) playWarmPiano(mel[s], 0.9, v * 0.28, true);
             if (bass[s]) playWarmPiano(bass[s], 1.1, v * 0.24, false);
-        }
-        else if (audioPrefs.track === 'roblox_chill') {
-            // Roblox Classic Lobby / Elevator Bossa Chill
-            const chords = [
-                [349.23, 440.00, 523.25, 659.25], // Fmaj7
-                [329.63, 392.00, 493.88, 587.33], // Em7
-                [293.66, 349.23, 440.00, 523.25], // Dm7
-                [261.63, 329.63, 392.00, 493.88]  // Cmaj7
-            ];
-            const bar = Math.floor(s / 8);
-            const stepInBar = s % 8;
-
-            if (stepInBar === 0 || stepInBar === 3 || stepInBar === 6) {
-                chords[bar].forEach(note => playWarmPiano(note, 0.55, v * 0.14, true));
-            }
-            const bassLine = [174.61, 0, 0, 261.63, 164.81, 0, 0, 246.94, 146.83, 0, 0, 220.00, 130.81, 0, 0, 196.00];
+        } else if (audioPrefs.track === 'roblox_chill') {
+            const chords = [[349.23,440.00,523.25,659.25],[329.63,392.00,493.88,587.33],[293.66,349.23,440.00,523.25],[261.63,329.63,392.00,493.88]];
+            const bar = Math.floor(s / 8), stepInBar = s % 8;
+            if (stepInBar === 0 || stepInBar === 3 || stepInBar === 6) chords[bar].forEach(note => playWarmPiano(note, 0.55, v * 0.14, true));
+            const bassLine = [174.61,0,0,261.63,164.81,0,0,246.94,146.83,0,0,220.00,130.81,0,0,196.00];
             const bNote = bassLine[Math.floor(s / 2)];
             if (s % 2 === 0 && bNote) playTone(bNote, 0.35, 'sine', v * 0.32);
-
             if (stepInBar % 2 === 0) playNoise(0.03, v * 0.08, 6000, 'highpass');
-        }
-        else if (audioPrefs.track === 'space') {
-            // Interstellar Vibe (оставлен по просьбе)
+        } else if (audioPrefs.track === 'space') {
             const s16 = bgmStep % 16;
-            const arp = [
-                220.00, 329.63, 440.00, 523.25, 659.25, 523.25, 440.00, 329.63,
-                174.61, 261.63, 349.23, 440.00, 523.25, 440.00, 349.23, 261.63
-            ];
+            const arp = [220.00,329.63,440.00,523.25,659.25,523.25,440.00,329.63, 174.61,261.63,349.23,440.00,523.25,440.00,349.23,261.63];
             playWarmPiano(arp[s16], 0.65, v * 0.28, true);
-            if (s16 % 8 === 0) {
-                playWarmPiano(s16 === 0 ? 110.00 : 87.31, 1.4, v * 0.32, false);
-            }
+            if (s16 % 8 === 0) playWarmPiano(s16 === 0 ? 110.00 : 87.31, 1.4, v * 0.32, false);
         }
-
         bgmStep++;
     }, stepMs);
 }
@@ -362,15 +480,8 @@ function renderTrackList() {
         el.className = 'track-card' + (isAct ? ' active' : '');
         el.innerHTML = `<div class="track-info"><div class="track-title">${tr.title}</div><div class="track-desc">${desc}</div></div><div class="track-status">${isAct ? '🔊' : '▶️'}</div>`;
         el.onclick = () => {
-            if (tr.id === 'custom' && isAct) {
-                customFileInput.click();
-                return;
-            }
-            audioPrefs.track = tr.id;
-            saveAudioPrefs();
-            sfxClick();
-            startBgm();
-            renderTrackList();
+            if (tr.id === 'custom' && isAct) { customFileInput.click(); return; }
+            audioPrefs.track = tr.id; saveAudioPrefs(); sfxClick(); startBgm(); renderTrackList();
         };
         list.appendChild(el);
     });
@@ -562,6 +673,7 @@ function stopAllGames() {
     if (victoryFxTimer) { clearInterval(victoryFxTimer); victoryFxTimer = null; }
     document.getElementById('mj-victory-overlay').classList.remove('active');
     document.getElementById('mines-result-overlay').classList.remove('active');
+    document.getElementById('tetris-result-overlay').classList.remove('active');
     if (typeof stopMines === 'function') stopMines();
     if (typeof stopTetris === 'function') stopTetris();
     if (typeof stopZombieLab === 'function') stopZombieLab();
