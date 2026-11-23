@@ -40,6 +40,7 @@ function loadZombieLab() {
     try { const raw = localStorage.getItem('zombieLabSave'); if (raw) return JSON.parse(raw); } catch {}
     return { mutagen: 0, total: 0, owned: {} };
 }
+
 function saveZombieLab() {
     try { localStorage.setItem('zombieLabSave', JSON.stringify(zState)); } catch {}
     if (typeof updateRecord === 'function') updateRecord('zlab', Math.floor(zState.total));
@@ -50,7 +51,6 @@ function shareZLabScore() {
     shareGameScore(`🧪 Моя Зомби-Лаба в Game Hub: ${formatNum(zState.total)} мутагена (${stageName})! Попробуй догнать!`);
 }
 
-}
 function formatNum(n) {
     n = Math.floor(Math.max(0, n));
     if (n >= 1e9) return (n / 1e9).toFixed(2) + 'B';
@@ -58,6 +58,7 @@ function formatNum(n) {
     if (n >= 1e3) return (n / 1e3).toFixed(1) + 'K';
     return String(n);
 }
+
 function getZLabStats() {
     let perClick = 1, perSec = 0;
     ZLAB_UPGRADES.forEach(u => {
@@ -67,6 +68,7 @@ function getZLabStats() {
     });
     return { perClick, perSec };
 }
+
 function getUpgradeCost(u) {
     return Math.floor(u.baseCost * Math.pow(1.18, zState.owned[u.id] || 0));
 }
