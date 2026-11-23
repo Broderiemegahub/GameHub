@@ -42,6 +42,14 @@ function loadZombieLab() {
 }
 function saveZombieLab() {
     try { localStorage.setItem('zombieLabSave', JSON.stringify(zState)); } catch {}
+    if (typeof updateRecord === 'function') updateRecord('zlab', Math.floor(zState.total));
+}
+
+function shareZLabScore() {
+    const stageName = document.getElementById('zlab-stage').innerText;
+    shareGameScore(`🧪 Моя Зомби-Лаба в Game Hub: ${formatNum(zState.total)} мутагена (${stageName})! Попробуй догнать!`);
+}
+
 }
 function formatNum(n) {
     n = Math.floor(Math.max(0, n));
