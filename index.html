@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Game Hub</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <link rel="stylesheet" href="style.css">
+    <script>document.write('<link rel="stylesheet" href="style.css?v=' + Date.now() + '">');</script>9
 </head>
 <body>
 
@@ -274,11 +274,12 @@
             <button class="btn btn-green" style="width: 100%;" onclick="sfxClick(); closeUpdateModal()">🔥 КРУТО!</button>
         </div>
     </div>
+<script>
+    const v = Date.now();
+    ['core.js', 'zlab.js', 'mines.js', 'tetris.js', 'mahjong.js'].forEach(file => {
+        document.write(`<script src="${file}?v=${v}"><\/script>`);
+    });
+</script>
 
-    <script src="core.js"></script>
-    <script src="zlab.js"></script>
-    <script src="mines.js"></script>
-    <script src="tetris.js"></script>
-    <script src="mahjong.js"></script>
 </body>
 </html>
