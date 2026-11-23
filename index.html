@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Game Hub</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <link rel="stylesheet" href="style.css?v=2.5">
+    <link rel="stylesheet" href="style.css?v=2.7">
 </head>
 <body>
 
@@ -33,7 +33,7 @@
 
         <div class="hub-header">
             <h1 class="hub-title">GAME HUB</h1>
-            <button id="update-badge" class="update-badge" onclick="sfxClick(); openUpdateModal()">v2.5</button>
+            <button id="update-badge" class="update-badge" onclick="sfxClick(); openUpdateModal()">v2.7</button>
         </div>
         <button class="btn" onclick="sfxClick(); showScreen('mines-screen'); initMines();">💣 САПЕР</button>
         <button class="btn" onclick="sfxClick(); showScreen('tetris-screen'); initTetris();">🧱 ТЕТРИС</button>
@@ -61,6 +61,17 @@
         <div id="lb-list" class="lb-list"></div>
 
         <button class="btn btn-share" id="lb-share-btn" style="width: 310px; margin-bottom: 20px;">📤 ПОДЕЛИТЬСЯ В ЧАТЕ</button>
+    </div>
+
+    <!-- АДМИН-ПАНЕЛЬ -->
+    <div id="admin-screen" class="screen">
+        <div class="top-bar">
+            <button class="btn btn-sm" onclick="sfxClick(); backToMenu()">⬅ Меню</button>
+            <h3 style="margin:0; color:#f43f5e;">🛡️ АДМИНКА</h3>
+            <button class="btn btn-sm" onclick="sfxClick(); renderAdminList()" title="Обновить">↻</button>
+        </div>
+        <div class="admin-info-bar" id="admin-my-id">Твой ID: ...</div>
+        <div class="lb-list" id="admin-players-list"></div>
     </div>
 
     <!-- ЕДИНЫЕ НАСТРОЙКИ -->
@@ -167,7 +178,8 @@
             </div>
         </div>
 
-        <button class="btn" style="margin-top: 6px; margin-bottom: 20px;" onclick="sfxClick(); backToMenu()">ГОТОВО</button>
+        <button class="btn" style="width: 310px; margin-top: 4px; margin-bottom: 10px;" onclick="sfxClick(); backToMenu()">ГОТОВО</button>
+        <button class="btn btn-sm" style="width: 310px; border-color: #f43f5e; color: #fda4af; margin-bottom: 24px;" onclick="sfxClick(); openAdminPanel()">🛡️ АДМИН-ПАНЕЛЬ</button>
     </div>
 
     <!-- ЗОМБИ-ЛАБОРАТОРИЯ -->
@@ -322,16 +334,27 @@
     <div id="update-modal" class="modal-overlay">
         <div class="victory-card" style="animation: victorySlam 0.35s ease; border-color: var(--accent);">
             <div style="font-size: 2.8rem; line-height: 1;">🚀</div>
-            <div class="victory-title" id="update-modal-title" style="font-size: 1.5rem;">ОБНОВЛЕНИЕ v2.5</div>
+            <div class="victory-title" id="update-modal-title" style="font-size: 1.5rem;">ОБНОВЛЕНИЕ v2.7</div>
             <ul class="changelog-list" id="changelog-list"></ul>
             <button class="btn btn-green" style="width: 100%;" onclick="sfxClick(); closeUpdateModal()">🔥 КРУТО!</button>
         </div>
     </div>
 
-    <script src="core.js?v=2.5"></script>
-    <script src="zlab.js?v=2.5"></script>
-    <script src="mines.js?v=2.5"></script>
-    <script src="tetris.js?v=2.5"></script>
-    <script src="mahjong.js?v=2.5"></script>
+    <!-- ЭКРАН БАНА -->
+    <div id="ban-overlay" class="modal-overlay">
+        <div class="lose-rays"></div>
+        <div class="victory-card lose-card">
+            <div class="victory-trophy">⛔</div>
+            <div class="victory-title">ВЫ ЗАБАНЕНЫ</div>
+            <div class="victory-sub">Доступ к таблице лидеров и играм закрыт администратором.</div>
+            <div class="victory-aura" id="ban-reason-badge">Причина: Использование читов / автокликера</div>
+        </div>
+    </div>
+
+    <script src="core.js?v=2.7"></script>
+    <script src="zlab.js?v=2.7"></script>
+    <script src="mines.js?v=2.7"></script>
+    <script src="tetris.js?v=2.7"></script>
+    <script src="mahjong.js?v=2.7"></script>
 </body>
 </html>
