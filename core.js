@@ -3,7 +3,7 @@ const FIREBASE_URL = 'https://gamehubonline-7b970-default-rtdb.firebaseio.com';
 const ADMIN_PIN = '2004'; // Пароль от админ-панели (поменяй на свой)
 
 // ==================== СИСТЕМА ОБНОВЛЕНИЙ ====================
-const APP_VERSION = '2.8';
+const APP_VERSION = '2.0';
 const CHANGELOG = [
     '👻 Кнопка админ-панели скрыта и защищена от подбора пароля (3 ошибки = автобан)',
     '🛡️ Защита от автокликеров в Зомби-лабе',
