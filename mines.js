@@ -80,13 +80,22 @@ function showMinesResult(isWin) {
     const card = document.getElementById('mines-result-card');
     const rays = document.getElementById('mines-rays');
     const retryBtn = document.getElementById('mines-res-retry');
+    const shareBtn = document.getElementById('mines-res-share');
 
     if (isWin) {
+        const isNewBest = updateRecord('mines', mSeconds);
         card.className = 'victory-card'; rays.className = 'victory-rays';
         document.getElementById('mines-res-icon').innerText = '🏆';
-        document.getElementById('mines-res-title').innerText = 'ПОБЕДА!';
+        document.getElementById('mines-res-title').innerText = isNewBest ? 'НОВЫЙ РЕКОРД!' : 'ПОБЕДА!';
         document.getElementById('mines-res-sub').innerText = `Поле ${mSize}x${mSize} полностью разминировано!`;
-        document.getElementById('mines-res-badge').innerText = `⏱ Время: ${mSeconds}с • 💣 Мин: ${mCount}`;
+        document.getElementById('mines-res-badge').innerText = `⏱ ${mSeconds}с • 🏆 Лучшее: ${hubRecords.mines}с`;
+
+        shareBtn.style.display = 'block';
+        shareBtn.onclick = () => {
+            sfxClick();
+            shareGameScore(`💣 Я разминировал поле ${mSize}x${mSize} в Сапёре за ${mSeconds} сек (рекорд: ${hubRecords.mines}с)! Побей моё время в Game Hub!`);
+        };
+
         retryBtn.className = 'btn btn-green'; retryBtn.innerText = '⚡ СЫГРАТЬ ЕЩЁ';
 
         sfxVictory(); triggerShake(true); doVibrate([80, 40, 80, 40, 180]);
@@ -103,6 +112,7 @@ function showMinesResult(isWin) {
         document.getElementById('mines-res-title').innerText = 'БАБАХ!';
         document.getElementById('mines-res-sub').innerText = 'Ты наткнулся на мину...';
         document.getElementById('mines-res-badge').innerText = `⏱ Продержался: ${mSeconds}с`;
+        shareBtn.style.display = 'none';
         retryBtn.className = 'btn btn-red'; retryBtn.innerText = '🔄 ПОПРОБОВАТЬ СНОВА';
     }
     overlay.classList.add('active');
