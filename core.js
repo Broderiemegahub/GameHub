@@ -1,13 +1,14 @@
-// ==================== НАСТРОЙКА ОБЛАЧНОЙ БАЗЫ (FIREBASE) ====================
+// ==================== НАСТРОЙКИ БАЗЫ И АДМИНКИ ====================
 const FIREBASE_URL = 'https://gamehubonline-7b970-default-rtdb.firebaseio.com';
+const ADMIN_PIN = '7777'; // Пароль от админ-панели (поменяй на свой)
 
 // ==================== СИСТЕМА ОБНОВЛЕНИЙ ====================
-const APP_VERSION = '2.0';
+const APP_VERSION = '2.7';
 const CHANGELOG = [
-    '🏆 Из таблицы лидеров убраны все боты — теперь в топе только реальные игроки',
-    '👤 Профиль Telegram (имя и аватар) прямо в главном меню',
-    '📤 Кнопка «Поделиться в чате» для флекса рекордами в Telegram',
-    '🧱 Новый неоновый экран конца игры в Тетрисе'
+    '🛡️ Добавлена защита от автокликеров в Зомби-лабе',
+    '👑 Добавлена Админ-панель: можно банить читеров и обнулять их рекорды',
+    '🏆 Таблица лидеров с реальными игроками из Telegram',
+    '📤 Кнопка «Поделиться в чате» для флекса рекордами'
 ];
 
 function initUpdateBadge() {
@@ -85,7 +86,7 @@ function shareGameScore(text) {
     }
 }
 
-// ==================== РЕКОРДЫ И ОБЛАЧНАЯ ТАБЛИЦА ЛИДЕРОВ ====================
+// ==================== СИСТЕМА БАНА И ПРОВЕРКА СТАТУСА ====================
 function getPlayerId() {
     if (rawTgUser?.id) return 'tg_' + rawTgUser.id;
     let fallbackId = null;
@@ -98,6 +99,29 @@ function getPlayerId() {
 }
 
 const myPlayerId = getPlayerId();
+let isUserBanned = false;
+
+async function checkBanStatus() {
+    const baseUrl = FIREBASE_URL.replace(/\/+$/, '');
+    if (!baseUrl.startsWith('http')) return;
+    try {
+        const res = await fetch(`${baseUrl}/banned/${myPlayerId}.json`);
+        const banInfo = await res.json();
+        if (banInfo && banInfo.banned) {
+            isUserBanned = true;
+            const reasonEl = document.getElementById('ban-reason-badge');
+            if (reasonEl && banInfo.reason) reasonEl.innerText = 'Причина: ' + banInfo.reason;
+            document.getElementById('ban-overlay').classList.add('active');
+        } else {
+            isUserBanned = false;
+            document.getElementById('ban-overlay').classList.remove('active');
+        }
+    } catch {}
+}
+checkBanStatus();
+setInterval(checkBanStatus, 25000);
+
+// ==================== РЕКОРДЫ И ОБЛАЧНАЯ ТАБЛИЦА ЛИДЕРОВ ====================
 let hubRecords = loadHubRecords();
 let currentLbTab = 'mines';
 
@@ -119,6 +143,7 @@ function saveHubRecords() {
 }
 
 function pushScoreToCloud(game, val) {
+    if (isUserBanned) return;
     const baseUrl = FIREBASE_URL.replace(/\/+$/, '');
     if (!baseUrl.startsWith('http')) return;
 
@@ -135,13 +160,15 @@ function pushScoreToCloud(game, val) {
 }
 
 function syncExistingRecords() {
+    if (isUserBanned) return;
     if (hubRecords.mines !== null && hubRecords.mines > 0) pushScoreToCloud('mines', hubRecords.mines);
     if (hubRecords.tetris > 0) pushScoreToCloud('tetris', hubRecords.tetris);
     if (hubRecords.zlab > 0) pushScoreToCloud('zlab', hubRecords.zlab);
 }
-setTimeout(syncExistingRecords, 1500);
+setTimeout(syncExistingRecords, 2000);
 
 function updateRecord(game, val) {
+    if (isUserBanned) return false;
     if (game === 'mines') {
         if (val > 0 && (hubRecords.mines === null || val < hubRecords.mines)) {
             hubRecords.mines = val;
@@ -194,26 +221,35 @@ async function switchLbTab(tab, silent = false) {
     listEl.innerHTML = `<div style="text-align:center; color:#94a3b8; padding:20px; font-size:0.9rem;">⏳ Загружаем топ игроков...</div>`;
 
     let list = [];
+    let bannedMap = {};
     const baseUrl = FIREBASE_URL.replace(/\/+$/, '');
 
     if (baseUrl.startsWith('http')) {
         try {
-            const res = await fetch(`${baseUrl}/leaderboard/${tab}.json`);
-            const rawData = await res.json();
+            const [resScores, resBanned] = await Promise.all([
+                fetch(`${baseUrl}/leaderboard/${tab}.json`),
+                fetch(`${baseUrl}/banned.json`)
+            ]);
+            const rawData = await resScores.json();
+            const rawBanned = await resBanned.json();
+            if (rawBanned && typeof rawBanned === 'object') bannedMap = rawBanned;
+
             if (rawData && typeof rawData === 'object') {
-                list = Object.entries(rawData).map(([id, item]) => ({
-                    id,
-                    name: item.name || 'Игрок',
-                    tag: item.tag || '',
-                    val: Number(item.val) || 0,
-                    isMe: id === myPlayerId
-                }));
+                list = Object.entries(rawData)
+                    .filter(([id]) => !(bannedMap[id] && bannedMap[id].banned))
+                    .map(([id, item]) => ({
+                        id,
+                        name: item.name || 'Игрок',
+                        tag: item.tag || '',
+                        val: Number(item.val) || 0,
+                        isMe: id === myPlayerId
+                    }));
             }
         } catch {}
     }
 
     const myVal = hubRecords[tab];
-    const hasScore = tab === 'mines' ? (myVal !== null && myVal > 0) : (myVal > 0);
+    const hasScore = !isUserBanned && (tab === 'mines' ? (myVal !== null && myVal > 0) : (myVal > 0));
     if (hasScore && !list.some(x => x.isMe)) {
         list.push({ id: myPlayerId, name: tgUser.name, tag: tgUser.username, val: myVal, isMe: true });
     }
@@ -267,6 +303,144 @@ async function switchLbTab(tab, silent = false) {
         `;
         listEl.appendChild(row);
     });
+}
+
+// ==================== АДМИН-ПАНЕЛЬ (БАН И СБРОС) ====================
+function isAdminAuthed() {
+    try { return localStorage.getItem('gameHubAdminPin') === ADMIN_PIN; } catch { return false; }
+}
+
+function openAdminPanel() {
+    if (!isAdminAuthed()) {
+        const entered = prompt('Введи админ-код:');
+        if (entered !== ADMIN_PIN) {
+            sfxExplosion();
+            alert('Неверный код доступа!');
+            return;
+        }
+        try { localStorage.setItem('gameHubAdminPin', ADMIN_PIN); } catch {}
+    }
+    showScreen('admin-screen');
+    document.getElementById('admin-my-id').innerText = `Твой ID: ${myPlayerId}`;
+    renderAdminList();
+}
+
+async function renderAdminList() {
+    const listEl = document.getElementById('admin-players-list');
+    listEl.innerHTML = `<div style="text-align:center; color:#94a3b8; padding:20px;">⏳ Загружаем базу игроков...</div>`;
+
+    const baseUrl = FIREBASE_URL.replace(/\/+$/, '');
+    try {
+        const [lbRes, banRes] = await Promise.all([
+            fetch(`${baseUrl}/leaderboard.json`),
+            fetch(`${baseUrl}/banned.json`)
+        ]);
+        const lbData = (await lbRes.json()) || {};
+        const banData = (await banRes.json()) || {};
+
+        const playersMap = {};
+
+        ['mines', 'tetris', 'zlab'].forEach(game => {
+            const gObj = lbData[game] || {};
+            Object.entries(gObj).forEach(([id, info]) => {
+                if (!playersMap[id]) {
+                    playersMap[id] = { id, name: info.name || 'Игрок', tag: info.tag || '', mines: null, tetris: 0, zlab: 0, banned: false };
+                }
+                playersMap[id][game] = info.val;
+                if (info.name) playersMap[id].name = info.name;
+                if (info.tag) playersMap[id].tag = info.tag;
+            });
+        });
+
+        Object.entries(banData).forEach(([id, info]) => {
+            if (info && info.banned) {
+                if (!playersMap[id]) {
+                    playersMap[id] = { id, name: info.name || 'Забаненный', tag: info.tag || '', mines: null, tetris: 0, zlab: 0, banned: true };
+                } else {
+                    playersMap[id].banned = true;
+                }
+            }
+        });
+
+        const players = Object.values(playersMap);
+        listEl.innerHTML = '';
+
+        if (players.length === 0) {
+            listEl.innerHTML = `<div style="text-align:center; color:#94a3b8; padding:20px;">Игроков в базе пока нет.</div>`;
+            return;
+        }
+
+        players.forEach(p => {
+            const card = document.createElement('div');
+            card.className = 'admin-card' + (p.banned ? ' is-banned' : '');
+            const safeName = p.name.replace(/'/g, '');
+            const safeTag = p.tag.replace(/'/g, '');
+            card.innerHTML = `
+                <div class="admin-card-top">
+                    <div style="min-width:0;">
+                        <div class="lb-name">${p.name} ${p.banned ? '⛔' : ''}</div>
+                        <div class="lb-tag">${p.tag} • ${p.id}</div>
+                    </div>
+                </div>
+                <div class="admin-scores">
+                    <span>💣 ${p.mines ? p.mines + 'с' : '—'}</span>
+                    <span>🧱 ${p.tetris || 0}</span>
+                    <span>🧪 ${formatCompact(p.zlab || 0)}</span>
+                </div>
+                <div class="admin-actions">
+                    <button class="btn btn-xs" style="border-color:#fbbf24; color:#fbbf24;" onclick="adminResetPlayer('${p.id}', '${safeName}')">🔄 Сброс</button>
+                    <button class="btn btn-xs ${p.banned ? 'btn-green' : 'btn-red'}" onclick="adminToggleBan('${p.id}', '${safeName}', '${safeTag}', ${p.banned})">
+                        ${p.banned ? '✅ Разбанить' : '🚫 Забанить'}
+                    </button>
+                </div>
+            `;
+            listEl.appendChild(card);
+        });
+    } catch {
+        listEl.innerHTML = `<div style="text-align:center; color:#ef4444; padding:20px;">Ошибка загрузки базы</div>`;
+    }
+}
+
+async function adminResetPlayer(playerId, name) {
+    if (!confirm(`Обнулить все рекорды игрока ${name}?`)) return;
+    sfxClick();
+    const baseUrl = FIREBASE_URL.replace(/\/+$/, '');
+    await Promise.all([
+        fetch(`${baseUrl}/leaderboard/mines/${playerId}.json`, { method: 'DELETE' }),
+        fetch(`${baseUrl}/leaderboard/tetris/${playerId}.json`, { method: 'DELETE' }),
+        fetch(`${baseUrl}/leaderboard/zlab/${playerId}.json`, { method: 'DELETE' })
+    ]).catch(() => {});
+
+    if (playerId === myPlayerId) {
+        hubRecords = { mines: null, tetris: 0, zlab: 0 };
+        saveHubRecords();
+    }
+    sfxPop();
+    renderAdminList();
+}
+
+async function adminToggleBan(playerId, name, tag, currentlyBanned) {
+    const actionText = currentlyBanned ? `Разбанить игрока ${name}?` : `Забанить ${name} и удалить его очки?`;
+    if (!confirm(actionText)) return;
+    sfxClick();
+    const baseUrl = FIREBASE_URL.replace(/\/+$/, '');
+
+    if (currentlyBanned) {
+        await fetch(`${baseUrl}/banned/${playerId}.json`, { method: 'DELETE' }).catch(() => {});
+    } else {
+        await Promise.all([
+            fetch(`${baseUrl}/banned/${playerId}.json`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ banned: true, name, tag, reason: 'Читы / Автокликер', date: Date.now() })
+            }),
+            fetch(`${baseUrl}/leaderboard/mines/${playerId}.json`, { method: 'DELETE' }),
+            fetch(`${baseUrl}/leaderboard/tetris/${playerId}.json`, { method: 'DELETE' }),
+            fetch(`${baseUrl}/leaderboard/zlab/${playerId}.json`, { method: 'DELETE' })
+        ]).catch(() => {});
+    }
+    sfxExplosion();
+    renderAdminList();
 }
 
 // ==================== ЕДИНЫЕ НАСТРОЙКИ ====================
@@ -345,7 +519,6 @@ function saveAudioPrefs() {
 function ensureAudio() {
     if (!audioCtx) {
         audioCtx = new AudioCtx();
-
         masterComp = audioCtx.createDynamicsCompressor();
         masterComp.threshold.value = -14;
         masterComp.knee.value = 14;
