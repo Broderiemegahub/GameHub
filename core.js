@@ -1,14 +1,12 @@
 // ==================== НАСТРОЙКИ БАЗЫ И АДМИНКИ ====================
 const FIREBASE_URL = 'https://gamehubonline-7b970-default-rtdb.firebaseio.com';
-const ADMIN_PIN = '2004'; // Пароль от админ-панели (поменяй на свой)
+const ADMIN_PIN = '20100420Ki'; // Пароль от админ-панели (поменяй на свой)
 
 // ==================== СИСТЕМА ОБНОВЛЕНИЙ ====================
 const APP_VERSION = '2.0';
 const CHANGELOG = [
-    '👻 Кнопка админ-панели скрыта и защищена от подбора пароля (3 ошибки = автобан)',
     '🛡️ Защита от автокликеров в Зомби-лабе',
-    '🏆 Таблица лидеров с реальными игроками из Telegram',
-    '📤 Кнопка «Поделиться в чате» для флекса рекордами'
+    '🏆 Таблица лидеров с реальными игроками из Telegram'
 ];
 
 function initUpdateBadge() {
@@ -100,47 +98,115 @@ function getPlayerId() {
 
 const myPlayerId = getPlayerId();
 let isUserBanned = false;
+let isBanSyncing = false;
+
+function getLocalBan() {
+    try {
+        const raw = localStorage.getItem('gameHubBanned');
+        return raw ? JSON.parse(raw) : null;
+    } catch { return null; }
+}
+
+function setLocalBan(data) {
+    try {
+        if (data) localStorage.setItem('gameHubBanned', JSON.stringify(data));
+        else localStorage.removeItem('gameHubBanned');
+    } catch {}
+}
 
 function triggerLocalBanScreen(reason) {
     isUserBanned = true;
+    if (typeof stopAllGames === 'function') stopAllGames();
+
+    const menu = document.getElementById('main-menu');
+    if (menu) menu.style.display = 'none';
+    document.querySelectorAll('.screen').forEach(s => s.style.display = 'none');
+
     const reasonEl = document.getElementById('ban-reason-badge');
     if (reasonEl && reason) reasonEl.innerText = 'Причина: ' + reason;
-    document.getElementById('ban-overlay').classList.add('active');
+
+    const overlay = document.getElementById('ban-overlay');
+    if (overlay) {
+        overlay.style.zIndex = '99999';
+        overlay.style.display = 'flex';
+        overlay.classList.add('active');
+    }
+}
+
+function clearLocalBanScreen() {
+    isUserBanned = false;
+    setLocalBan(null);
+    setAdminFails(0);
+    const overlay = document.getElementById('ban-overlay');
+    if (overlay) {
+        overlay.classList.remove('active');
+        overlay.style.display = 'none';
+    }
+    const menu = document.getElementById('main-menu');
+    if (menu) menu.style.display = 'flex';
 }
 
 async function banCurrentPlayer(reason) {
+    setLocalBan({ banned: true, reason: reason, synced: false });
     triggerLocalBanScreen(reason);
+
     const baseUrl = FIREBASE_URL.replace(/\/+$/, '');
     if (!baseUrl.startsWith('http')) return;
-    await Promise.all([
-        fetch(`${baseUrl}/banned/${myPlayerId}.json`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                banned: true,
-                name: tgUser.name,
-                tag: tgUser.username,
-                reason: reason,
-                date: Date.now()
-            })
-        }),
-        fetch(`${baseUrl}/leaderboard/mines/${myPlayerId}.json`, { method: 'DELETE' }),
-        fetch(`${baseUrl}/leaderboard/tetris/${myPlayerId}.json`, { method: 'DELETE' }),
-        fetch(`${baseUrl}/leaderboard/zlab/${myPlayerId}.json`, { method: 'DELETE' })
-    ]).catch(() => {});
+
+    isBanSyncing = true;
+    try {
+        const [banRes] = await Promise.all([
+            fetch(`${baseUrl}/banned/${myPlayerId}.json`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    banned: true,
+                    name: tgUser.name,
+                    tag: tgUser.username,
+                    reason: reason,
+                    date: Date.now()
+                })
+            }),
+            fetch(`${baseUrl}/leaderboard/mines/${myPlayerId}.json`, { method: 'DELETE' }),
+            fetch(`${baseUrl}/leaderboard/tetris/${myPlayerId}.json`, { method: 'DELETE' }),
+            fetch(`${baseUrl}/leaderboard/zlab/${myPlayerId}.json`, { method: 'DELETE' })
+        ]);
+        if (banRes && banRes.ok) {
+            setLocalBan({ banned: true, reason: reason, synced: true });
+        }
+    } catch {}
+    isBanSyncing = false;
+}
+
+// Сразу проверяем локальный бан при запуске (без ожидания интернета)
+const initialLocalBan = getLocalBan();
+if (initialLocalBan && initialLocalBan.banned) {
+    triggerLocalBanScreen(initialLocalBan.reason || 'Использование читов / автокликера');
 }
 
 async function checkBanStatus() {
+    if (isBanSyncing) return;
     const baseUrl = FIREBASE_URL.replace(/\/+$/, '');
     if (!baseUrl.startsWith('http')) return;
+
     try {
         const res = await fetch(`${baseUrl}/banned/${myPlayerId}.json`);
+        if (!res.ok) return;
         const banInfo = await res.json();
+        const localBan = getLocalBan();
+
         if (banInfo && banInfo.banned) {
-            triggerLocalBanScreen(banInfo.reason || 'Использование читов / автокликера');
-        } else {
-            isUserBanned = false;
-            document.getElementById('ban-overlay').classList.remove('active');
+            const reason = banInfo.reason || 'Использование читов / автокликера';
+            setLocalBan({ banned: true, reason: reason, synced: true });
+            triggerLocalBanScreen(reason);
+        } else if (localBan && localBan.banned) {
+            if (!localBan.synced) {
+                // Локальный бан ещё не долетел до облака — отправляем повторно
+                banCurrentPlayer(localBan.reason || 'Попытка взлома админ-панели');
+            } else {
+                // Админ удалил бан в базе — разбаниваем игрока
+                clearLocalBanScreen();
+            }
         }
     } catch {}
 }
@@ -229,6 +295,7 @@ function formatCompact(n) {
 }
 
 function openLeaderboard(tab = 'mines') {
+    if (isUserBanned) return;
     showScreen('leaderboard-screen');
     switchLbTab(tab, true);
 }
@@ -345,13 +412,16 @@ function setAdminFails(cnt) {
 }
 
 function openAdminPanel() {
-    if (isUserBanned) return;
+    if (isUserBanned) {
+        triggerLocalBanScreen(getLocalBan()?.reason || 'Доступ заблокирован');
+        return;
+    }
 
     if (!isAdminAuthed()) {
         const entered = prompt('Код доступа:');
-        if (entered === null) return; // Нажали Отмена — не считаем за попытку
+        if (entered === null) return;
 
-        if (entered !== ADMIN_PIN) {
+        if (entered.trim() !== ADMIN_PIN) {
             const fails = getAdminFails() + 1;
             setAdminFails(fails);
             sfxExplosion();
@@ -477,6 +547,7 @@ async function adminToggleBan(playerId, name, tag, currentlyBanned) {
 
     if (currentlyBanned) {
         await fetch(`${baseUrl}/banned/${playerId}.json`, { method: 'DELETE' }).catch(() => {});
+        if (playerId === myPlayerId) clearLocalBanScreen();
     } else {
         await Promise.all([
             fetch(`${baseUrl}/banned/${playerId}.json`, {
@@ -495,6 +566,7 @@ async function adminToggleBan(playerId, name, tag, currentlyBanned) {
 
 // ==================== ЕДИНЫЕ НАСТРОЙКИ ====================
 function openSettings(tab = 'style') {
+    if (isUserBanned) return;
     showScreen('settings-screen');
     renderTrackList();
     document.getElementById('bgm-vol').value = Math.round(audioPrefs.bgmVol * 100);
@@ -944,12 +1016,14 @@ function stopAllGames() {
     if (typeof stopZombieLab === 'function') stopZombieLab();
 }
 function showScreen(id) {
+    if (isUserBanned) return;
     stopAllGames();
     document.getElementById('main-menu').style.display = 'none';
     document.querySelectorAll('.screen').forEach(s => s.style.display = 'none');
     document.getElementById(id).style.display = 'flex';
 }
 function backToMenu() {
+    if (isUserBanned) return;
     stopAllGames();
     document.querySelectorAll('.screen').forEach(s => s.style.display = 'none');
     document.getElementById('main-menu').style.display = 'flex';
