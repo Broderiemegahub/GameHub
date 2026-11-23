@@ -1,12 +1,14 @@
 // ==================== НАСТРОЙКИ БАЗЫ И АДМИНКИ ====================
 const FIREBASE_URL = 'https://gamehubonline-7b970-default-rtdb.firebaseio.com';
-const ADMIN_PIN = '2010042Ki'; // Пароль от админ-панели (поменяй на свой)
+const ADMIN_PIN = '20100420Ki';
 
 // ==================== СИСТЕМА ОБНОВЛЕНИЙ ====================
 const APP_VERSION = '2.1';
 const CHANGELOG = [
-    '📋 Все игроки теперь сохраняются в базе данных
-    '🛡️ Защита от автокликеров в Зомби-лабе'
+    '✅ Исправлен запуск скриптов и возвращена синхронизация профиля Telegram',
+    '🔓 Разбаненные игроки сразу получают доступ ко всем кнопкам',
+    '📋 Все игроки сохраняются в базе админ-панели',
+    '🛡️ Защита от автокликеров и подбора админ-кода'
 ];
 
 function initUpdateBadge() {
@@ -45,11 +47,11 @@ if (tgWebApp) {
     if (tgWebApp.disableVerticalSwipes) tgWebApp.disableVerticalSwipes();
 }
 
-const rawTgUser = tgWebApp?.initDataUnsafe?.user;
+const rawTgUser = tgWebApp && tgWebApp.initDataUnsafe ? tgWebApp.initDataUnsafe.user : null;
 const tgUser = {
     name: rawTgUser ? [rawTgUser.first_name, rawTgUser.last_name].filter(Boolean).join(' ') : 'Игрок',
-    username: rawTgUser?.username ? '@' + rawTgUser.username : 'Telegram Player',
-    photo: rawTgUser?.photo_url || ''
+    username: (rawTgUser && rawTgUser.username) ? '@' + rawTgUser.username : 'Telegram Player',
+    photo: (rawTgUser && rawTgUser.photo_url) ? rawTgUser.photo_url : ''
 };
 
 function initTgProfile() {
@@ -86,7 +88,7 @@ function shareGameScore(text) {
 
 // ==================== РЕГИСТРАЦИЯ ИГРОКА И СИСТЕМА БАНА ====================
 function getPlayerId() {
-    if (rawTgUser?.id) return 'tg_' + rawTgUser.id;
+    if (rawTgUser && rawTgUser.id) return 'tg_' + rawTgUser.id;
     let fallbackId = null;
     try { fallbackId = localStorage.getItem('gameHubGuestId'); } catch {}
     if (!fallbackId) {
@@ -106,11 +108,7 @@ function registerPlayerInCloud() {
     fetch(`${baseUrl}/players/${myPlayerId}.json`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            name: tgUser.name,
-            tag: tgUser.username,
-            lastSeen: Date.now()
-        })
+        body: JSON.stringify({ name: tgUser.name, tag: tgUser.username, lastSeen: Date.now() })
     }).catch(() => {});
 }
 registerPlayerInCloud();
@@ -181,13 +179,7 @@ async function banCurrentPlayer(reason) {
             fetch(`${baseUrl}/banned/${myPlayerId}.json`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    banned: true,
-                    name: tgUser.name,
-                    tag: tgUser.username,
-                    reason: reason,
-                    date: Date.now()
-                })
+                body: JSON.stringify({ banned: true, name: tgUser.name, tag: tgUser.username, reason: reason, date: Date.now() })
             }),
             fetch(`${baseUrl}/players/${myPlayerId}.json`, {
                 method: 'PATCH',
@@ -202,7 +194,6 @@ async function banCurrentPlayer(reason) {
     isBanSyncing = false;
 }
 
-// Сразу проверяем локальный бан при старте
 const initialLocalBan = getLocalBan();
 if (initialLocalBan && initialLocalBan.banned) {
     triggerLocalBanScreen(initialLocalBan.reason || 'Использование читов / автокликера');
@@ -223,7 +214,6 @@ async function checkBanStatus() {
             setLocalBan({ banned: true, reason: reason });
             triggerLocalBanScreen(reason);
         } else {
-            // Если в облаке бана нет — мгновенно разблокируем интерфейс и кнопки
             clearLocalBanScreen();
         }
     } catch {}
@@ -263,12 +253,7 @@ function pushScoreToCloud(game, val) {
     fetch(`${baseUrl}/leaderboard/${game}/${myPlayerId}.json`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            name: tgUser.name,
-            tag: tgUser.username,
-            val: val,
-            updatedAt: Date.now()
-        })
+        body: JSON.stringify({ name: tgUser.name, tag: tgUser.username, val: val, updatedAt: Date.now() })
     }).catch(() => {});
 }
 
@@ -284,24 +269,15 @@ function updateRecord(game, val) {
     if (isUserBanned) return false;
     if (game === 'mines') {
         if (val > 0 && (hubRecords.mines === null || val < hubRecords.mines)) {
-            hubRecords.mines = val;
-            saveHubRecords();
-            pushScoreToCloud('mines', val);
-            return true;
+            hubRecords.mines = val; saveHubRecords(); pushScoreToCloud('mines', val); return true;
         }
     } else if (game === 'tetris') {
         if (val > hubRecords.tetris) {
-            hubRecords.tetris = val;
-            saveHubRecords();
-            pushScoreToCloud('tetris', val);
-            return true;
+            hubRecords.tetris = val; saveHubRecords(); pushScoreToCloud('tetris', val); return true;
         }
     } else if (game === 'zlab') {
         if (val > hubRecords.zlab) {
-            hubRecords.zlab = Math.floor(val);
-            saveHubRecords();
-            pushScoreToCloud('zlab', hubRecords.zlab);
-            return true;
+            hubRecords.zlab = Math.floor(val); saveHubRecords(); pushScoreToCloud('zlab', hubRecords.zlab); return true;
         }
     }
     return false;
@@ -406,16 +382,7 @@ async function switchLbTab(tab, silent = false) {
                        : tab === 'tetris' ? `${item.val} pts`
                        : `🧪 ${formatCompact(item.val)}`;
         const displayName = item.isMe ? `${item.name} (Вы)` : item.name;
-        row.innerHTML = `
-            <div class="lb-left">
-                <div class="lb-rank">${rankStr}</div>
-                <div style="min-width:0;">
-                    <div class="lb-name">${displayName}</div>
-                    <div class="lb-tag">${item.tag}</div>
-                </div>
-            </div>
-            <div class="lb-score">${scoreStr}</div>
-        `;
+        row.innerHTML = `<div class="lb-left"><div class="lb-rank">${rankStr}</div><div style="min-width:0;"><div class="lb-name">${displayName}</div><div class="lb-tag">${item.tag}</div></div></div><div class="lb-score">${scoreStr}</div>`;
         listEl.appendChild(row);
     });
 }
@@ -424,18 +391,16 @@ async function switchLbTab(tab, silent = false) {
 function isAdminAuthed() {
     try { return localStorage.getItem('gameHubAdminPin') === ADMIN_PIN; } catch { return false; }
 }
-
 function getAdminFails() {
     try { return parseInt(localStorage.getItem('gameHubAdminFails') || '0', 10) || 0; } catch { return 0; }
 }
-
 function setAdminFails(cnt) {
     try { localStorage.setItem('gameHubAdminFails', String(cnt)); } catch {}
 }
 
 function openAdminPanel() {
     if (isUserBanned) {
-        triggerLocalBanScreen(getLocalBan()?.reason || 'Доступ заблокирован');
+        triggerLocalBanScreen((getLocalBan() && getLocalBan().reason) || 'Доступ заблокирован');
         return;
     }
 
@@ -485,22 +450,12 @@ async function renderAdminList() {
 
         const playersMap = {};
 
-        // 1. Все зарегистрированные игроки (включая разбаненных и без рекордов)
         Object.entries(playersData).forEach(([id, info]) => {
             if (info && typeof info === 'object') {
-                playersMap[id] = {
-                    id,
-                    name: info.name || 'Игрок',
-                    tag: info.tag || '',
-                    mines: null,
-                    tetris: 0,
-                    zlab: 0,
-                    banned: false
-                };
+                playersMap[id] = { id, name: info.name || 'Игрок', tag: info.tag || '', mines: null, tetris: 0, zlab: 0, banned: false };
             }
         });
 
-        // 2. Рекорды из таблицы лидеров
         ['mines', 'tetris', 'zlab'].forEach(game => {
             const gObj = lbData[game] || {};
             Object.entries(gObj).forEach(([id, info]) => {
@@ -513,7 +468,6 @@ async function renderAdminList() {
             });
         });
 
-        // 3. Забаненные игроки
         Object.entries(banData).forEach(([id, info]) => {
             if (info && info.banned) {
                 if (!playersMap[id]) {
@@ -1088,3 +1042,4 @@ function doVibrate(ms) {
     if (document.getElementById('vibrate-on').checked && navigator.vibrate) navigator.vibrate(ms);
 }
 window.oncontextmenu = (e) => { e.preventDefault(); return false; };
+// === КОНЕЦ ФАЙЛА CORE.JS ===
