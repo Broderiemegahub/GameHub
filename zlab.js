@@ -29,6 +29,65 @@ let zState = loadZombieLab();
 let zLabInt = null, zEventInt = null, zFlaskTimer = null, zIsoTimer = null;
 let zActiveEvent = null, zTicks = 0;
 
+// Защита от автокликера
+let zClickHistory = [];
+let zLockoutUntil = 0;
+
+function checkAutoClicker(e) {
+    const now = Date.now();
+    if (now < zLockoutUntil) {
+        const secLeft = Math.ceil((zLockoutUntil - now) / 1000);
+        spawnFloatText(e.clientX || window.innerWidth / 2, (e.clientY || window.innerHeight / 2) - 20, `🚫 АНТИ-ЧИТ (${secLeft}с)`, '#ef4444');
+        return true;
+    }
+
+    // 1. Блокируем программные скрипты (не настоящие нажатия)
+    if (e && e.isTrusted === false) {
+        triggerAutoClickerLock(e, 'Скрипт заблокирован!');
+        return true;
+    }
+
+    const x = Math.round(e.clientX || 0);
+    const y = Math.round(e.clientY || 0);
+    zClickHistory.push({ t: now, x, y });
+    if (zClickHistory.length > 12) zClickHistory.shift();
+
+    if (zClickHistory.length >= 12) {
+        const span = now - zClickHistory[0].t;
+        // 2. Сверхчеловеческая скорость (> ~18.5 кликов/сек подряд)
+        if (span < 650) {
+            triggerAutoClickerLock(e, 'Слишком быстро! Анти-автокликер');
+            return true;
+        }
+    }
+
+    if (zClickHistory.length >= 8) {
+        const recent = zClickHistory.slice(-8);
+        const deltas = [];
+        for (let i = 1; i < recent.length; i++) deltas.push(recent[i].t - recent[i - 1].t);
+        const avg = deltas.reduce((a, b) => a + b, 0) / deltas.length;
+        const maxDiff = Math.max(...deltas.map(d => Math.abs(d - avg)));
+        const sameSpot = recent.every(p => Math.abs(p.x - recent[0].x) <= 1 && Math.abs(p.y - recent[0].y) <= 1);
+
+        // 3. Роботизированный тайминг (разброс < 2.5мс) + одна и та же точка экрана
+        if (maxDiff < 2.5 && sameSpot) {
+            triggerAutoClickerLock(e, 'Обнаружен автокликер!');
+            return true;
+        }
+    }
+
+    return false;
+}
+
+function triggerAutoClickerLock(e, msg) {
+    zLockoutUntil = Date.now() + 5000;
+    zClickHistory = [];
+    sfxAlarm();
+    triggerShake(true);
+    doVibrate(250);
+    spawnFloatText(e.clientX || window.innerWidth / 2, (e.clientY || window.innerHeight / 2) - 25, `🚫 ${msg}`, '#ef4444');
+}
+
 function stopZombieLab() {
     if (zLabInt) { clearInterval(zLabInt); zLabInt = null; }
     clearZLabEvent();
@@ -284,6 +343,8 @@ function triggerIsotopeGamble(e) {
 }
 
 function tapReactor(e) {
+    if (checkAutoClicker(e)) return;
+
     const rx = e.clientX || window.innerWidth / 2, ry = e.clientY || window.innerHeight / 2;
     if (zActiveEvent && zActiveEvent.type === 'meltdown') {
         zActiveEvent.failed = true;
