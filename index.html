@@ -227,21 +227,37 @@
         <div class="mines-hint">Удерживай клетку, чтобы поставить 🚩</div>
     </div>
 
-    <!-- ТЕТРИС -->
+        <!-- ТЕТРИС -->
     <div id="tetris-screen" class="screen">
         <div class="top-bar">
             <button class="btn btn-sm" onclick="sfxClick(); backToMenu()">⬅ Меню</button>
             <div style="font-family: monospace; font-size: 1.2rem;">СЧЕТ: <span id="tetris-score">0</span></div>
             <button class="btn btn-sm" onclick="sfxClick(); initTetris()">↻</button>
         </div>
-        <canvas id="tetris-canvas" width="200" height="400"></canvas>
+        <div class="tetris-arena">
+            <canvas id="tetris-canvas" width="200" height="400"></canvas>
+            <div class="tetris-side">
+                <div class="tetris-next-box">
+                    <div class="tetris-next-label">ДАЛЕЕ</div>
+                    <canvas id="tetris-next" width="64" height="64"></canvas>
+                </div>
+                <div class="tetris-swipe-tip">
+                    👆 Тап — поворот<br>
+                    ↔️ Свайп — ход<br>
+                    ⏬ Резко вниз — сброс
+                </div>
+            </div>
+        </div>
         <div class="controls">
-            <div></div><button class="control-btn" onclick="rotateT()">↻</button><div></div>
+            <div></div>
+            <button class="control-btn" onclick="rotateT()">↻</button>
+            <button class="control-btn" onclick="hardDropT()" title="Сбросить">⏬</button>
             <button class="control-btn" onclick="moveLeftT()">←</button>
             <button class="control-btn" onclick="dropT()">↓</button>
             <button class="control-btn" onclick="moveRightT()">→</button>
         </div>
     </div>
+
 
     <!-- МАДЖОНГ -->
     <div id="mahjong-levels-screen" class="screen">
