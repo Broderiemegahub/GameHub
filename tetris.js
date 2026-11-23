@@ -10,6 +10,7 @@ function stopTetris() {
 
 function initTetris() {
     clearInterval(tInt); tBusy = false;
+    document.getElementById('tetris-result-overlay').classList.remove('active');
     tScore = 0; tBoard = Array.from({ length: 20 }, () => Array(10).fill(0));
     document.getElementById('tetris-score').innerText = '0';
     const speed = parseInt(document.getElementById('tetris-speed').value);
@@ -21,9 +22,24 @@ function spawnT() {
     const id = Math.floor(Math.random() * 7) + 1;
     tPiece = { s: T_SHAPES[id], x: 3, y: 0, c: id };
     if (collT()) {
-        clearInterval(tInt); sfxExplosion(); triggerShake(true); doVibrate([100, 50, 100]);
-        setTimeout(() => { alert('ТЕТРИС: КОНЕЦ ИГРЫ! Счет: ' + tScore); initTetris(); }, 150);
+        clearInterval(tInt); tInt = null;
+        sfxExplosion(); triggerShake(true); doVibrate([100, 50, 100]);
+        const isNewBest = updateRecord('tetris', tScore);
+        document.getElementById('tetris-res-sub').innerText = `Твой счёт: ${tScore}`;
+        document.getElementById('tetris-res-badge').innerText = isNewBest
+            ? `🔥 НОВЫЙ РЕКОРД: ${hubRecords.tetris}!`
+            : `🏆 Лучший рекорд: ${hubRecords.tetris}`;
+        document.getElementById('tetris-res-share').onclick = () => {
+            sfxClick();
+            shareGameScore(`🧱 Я набрал ${tScore} очков в Тетрисе (мой рекорд: ${hubRecords.tetris}) в Game Hub! Сможешь больше?`);
+        };
+        setTimeout(() => document.getElementById('tetris-result-overlay').classList.add('active'), 250);
     }
+}
+
+function closeTetrisOverlayAndRestart() {
+    document.getElementById('tetris-result-overlay').classList.remove('active');
+    initTetris();
 }
 
 function collT() {
