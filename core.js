@@ -1,8 +1,11 @@
+// ==================== НАСТРОЙКА ОБЛАЧНОЙ БАЗЫ (FIREBASE) ====================
+const FIREBASE_URL = 'https://gamehubonline-7b970-default-rtdb.firebaseio.com';
+
 // ==================== СИСТЕМА ОБНОВЛЕНИЙ ====================
-const APP_VERSION = '1.3';
+const APP_VERSION = '2.0';
 const CHANGELOG = [
+    '🏆 Из таблицы лидеров убраны все боты — теперь в топе только реальные игроки',
     '👤 Профиль Telegram (имя и аватар) прямо в главном меню',
-    '🏆 Таблица лидеров по каждой игре (Сапёр, Тетрис и Зомби-лаба)',
     '📤 Кнопка «Поделиться в чате» для флекса рекордами в Telegram',
     '🧱 Новый неоновый экран конца игры в Тетрисе'
 ];
@@ -82,7 +85,19 @@ function shareGameScore(text) {
     }
 }
 
-// ==================== РЕКОРДЫ И ТАБЛИЦА ЛИДЕРОВ ====================
+// ==================== РЕКОРДЫ И ОБЛАЧНАЯ ТАБЛИЦА ЛИДЕРОВ ====================
+function getPlayerId() {
+    if (rawTgUser?.id) return 'tg_' + rawTgUser.id;
+    let fallbackId = null;
+    try { fallbackId = localStorage.getItem('gameHubGuestId'); } catch {}
+    if (!fallbackId) {
+        fallbackId = 'guest_' + Math.random().toString(36).slice(2, 10);
+        try { localStorage.setItem('gameHubGuestId', fallbackId); } catch {}
+    }
+    return fallbackId;
+}
+
+const myPlayerId = getPlayerId();
 let hubRecords = loadHubRecords();
 let currentLbTab = 'mines';
 
@@ -103,23 +118,49 @@ function saveHubRecords() {
     try { localStorage.setItem('gameHubRecords', JSON.stringify(hubRecords)); } catch {}
 }
 
+function pushScoreToCloud(game, val) {
+    const baseUrl = FIREBASE_URL.replace(/\/+$/, '');
+    if (!baseUrl.startsWith('http')) return;
+
+    fetch(`${baseUrl}/leaderboard/${game}/${myPlayerId}.json`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            name: tgUser.name,
+            tag: tgUser.username,
+            val: val,
+            updatedAt: Date.now()
+        })
+    }).catch(() => {});
+}
+
+function syncExistingRecords() {
+    if (hubRecords.mines !== null && hubRecords.mines > 0) pushScoreToCloud('mines', hubRecords.mines);
+    if (hubRecords.tetris > 0) pushScoreToCloud('tetris', hubRecords.tetris);
+    if (hubRecords.zlab > 0) pushScoreToCloud('zlab', hubRecords.zlab);
+}
+setTimeout(syncExistingRecords, 1500);
+
 function updateRecord(game, val) {
     if (game === 'mines') {
         if (val > 0 && (hubRecords.mines === null || val < hubRecords.mines)) {
             hubRecords.mines = val;
             saveHubRecords();
+            pushScoreToCloud('mines', val);
             return true;
         }
     } else if (game === 'tetris') {
         if (val > hubRecords.tetris) {
             hubRecords.tetris = val;
             saveHubRecords();
+            pushScoreToCloud('tetris', val);
             return true;
         }
     } else if (game === 'zlab') {
         if (val > hubRecords.zlab) {
             hubRecords.zlab = Math.floor(val);
             saveHubRecords();
+            pushScoreToCloud('zlab', hubRecords.zlab);
             return true;
         }
     }
@@ -134,79 +175,78 @@ function formatCompact(n) {
     return String(n);
 }
 
-const LB_RIVALS = {
-    mines: [
-        { name: 'ShadowMiner', tag: '@miner_pro', val: 14 },
-        { name: 'CyberFox',    tag: '@cfox',      val: 22 },
-        { name: 'NeonPulse',   tag: '@npulse',    val: 31 },
-        { name: 'Vortex',      tag: '@vtx99',     val: 44 },
-        { name: 'PixelKnight', tag: '@pknight',   val: 58 },
-        { name: 'Rookie_01',   tag: '@rookie',    val: 80 }
-    ],
-    tetris: [
-        { name: 'BlockGod',    tag: '@tetromaster', val: 4800 },
-        { name: 'CyberFox',    tag: '@cfox',        val: 3200 },
-        { name: 'NeonPulse',   tag: '@npulse',      val: 2100 },
-        { name: 'Vortex',      tag: '@vtx99',       val: 1400 },
-        { name: 'PixelKnight', tag: '@pknight',     val: 800 },
-        { name: 'Rookie_01',   tag: '@rookie',      val: 300 }
-    ],
-    zlab: [
-        { name: 'Dr. Omega',   tag: '@biohazard', val: 2500000 },
-        { name: 'MutantKing',  tag: '@zking',     val: 500000 },
-        { name: 'CyberFox',    tag: '@cfox',      val: 100000 },
-        { name: 'NeonPulse',   tag: '@npulse',    val: 25000 },
-        { name: 'Vortex',      tag: '@vtx99',     val: 5000 },
-        { name: 'Rookie_01',   tag: '@rookie',    val: 500 }
-    ]
-};
-
 function openLeaderboard(tab = 'mines') {
     showScreen('leaderboard-screen');
     switchLbTab(tab, true);
 }
 
-function switchLbTab(tab, silent = false) {
+async function switchLbTab(tab, silent = false) {
     if (!silent) sfxClick();
     currentLbTab = tab;
     ['mines', 'tetris', 'zlab'].forEach(t => {
         document.getElementById('lbtab-' + t).classList.toggle('active', t === tab);
     });
 
-    const list = LB_RIVALS[tab].map(x => ({ ...x, isMe: false }));
+    const listEl = document.getElementById('lb-list');
+    const summaryEl = document.getElementById('lb-my-summary');
+    const shareBtn = document.getElementById('lb-share-btn');
+
+    listEl.innerHTML = `<div style="text-align:center; color:#94a3b8; padding:20px; font-size:0.9rem;">⏳ Загружаем топ игроков...</div>`;
+
+    let list = [];
+    const baseUrl = FIREBASE_URL.replace(/\/+$/, '');
+
+    if (baseUrl.startsWith('http')) {
+        try {
+            const res = await fetch(`${baseUrl}/leaderboard/${tab}.json`);
+            const rawData = await res.json();
+            if (rawData && typeof rawData === 'object') {
+                list = Object.entries(rawData).map(([id, item]) => ({
+                    id,
+                    name: item.name || 'Игрок',
+                    tag: item.tag || '',
+                    val: Number(item.val) || 0,
+                    isMe: id === myPlayerId
+                }));
+            }
+        } catch {}
+    }
+
     const myVal = hubRecords[tab];
     const hasScore = tab === 'mines' ? (myVal !== null && myVal > 0) : (myVal > 0);
-
-    if (hasScore) {
-        list.push({ name: tgUser.name + ' (Вы)', tag: tgUser.username, val: myVal, isMe: true });
+    if (hasScore && !list.some(x => x.isMe)) {
+        list.push({ id: myPlayerId, name: tgUser.name, tag: tgUser.username, val: myVal, isMe: true });
     }
 
     if (tab === 'mines') list.sort((a, b) => a.val - b.val);
     else list.sort((a, b) => b.val - a.val);
 
-    const summaryEl = document.getElementById('lb-my-summary');
-    const shareBtn = document.getElementById('lb-share-btn');
+    list = list.slice(0, 20);
 
-    if (hasScore) {
-        const myRank = list.findIndex(x => x.isMe) + 1;
-        const valText = tab === 'mines' ? `${myVal} сек`
-                      : tab === 'tetris' ? `${myVal} очков`
-                      : `${formatCompact(myVal)} 🧪`;
+    const meEntry = list.find(x => x.isMe);
+    if (meEntry) {
+        const myRank = list.indexOf(meEntry) + 1;
+        const valText = tab === 'mines' ? `${meEntry.val} сек`
+                      : tab === 'tetris' ? `${meEntry.val} очков`
+                      : `${formatCompact(meEntry.val)} 🧪`;
         summaryEl.innerHTML = `<span>Твоё место: #${myRank}</span><span>Рекорд: ${valText}</span>`;
 
-        const shareText = tab === 'mines' ? `💣 Мой рекорд в Сапёре (Game Hub) — ${myVal} сек (#${myRank} в топе)! Попробуй побить!`
-                        : tab === 'tetris' ? `🧱 Мой рекорд в Тетрисе (Game Hub) — ${myVal} очков (#${myRank} в топе)! Сможешь больше?`
-                        : `🧪 Я нафармил ${formatCompact(myVal)} мутагена в Зомби-Лабе (#${myRank} в топе)! Залетай!`;
+        const shareText = tab === 'mines' ? `💣 Мой рекорд в Сапёре (Game Hub) — ${meEntry.val} сек (#${myRank} в топе)! Попробуй побить!`
+                        : tab === 'tetris' ? `🧱 Мой рекорд в Тетрисе (Game Hub) — ${meEntry.val} очков (#${myRank} в топе)! Сможешь больше?`
+                        : `🧪 Я нафармил ${formatCompact(meEntry.val)} мутагена в Зомби-Лабе (#${myRank} в топе)! Залетай!`;
         shareBtn.onclick = () => { sfxClick(); shareGameScore(shareText); };
     } else {
-        summaryEl.innerHTML = `<span>Рекорд ещё не установлен</span><span>Сыграй катку!</span>`;
+        summaryEl.innerHTML = `<span>Ты ещё не в топе</span><span>Сыграй катку!</span>`;
         shareBtn.onclick = () => { sfxClick(); shareGameScore('🎮 Залетай в Game Hub — тут Сапёр, Тетрис, Маджонг и Зомби-Лаба!'); };
     }
 
-    const listEl = document.getElementById('lb-list');
     listEl.innerHTML = '';
-    const medals = ['🥇', '🥈', '🥉'];
+    if (list.length === 0) {
+        listEl.innerHTML = `<div style="text-align:center; color:#94a3b8; padding:20px; font-size:0.88rem;">Пока пусто — стань первым в этом режиме!</div>`;
+        return;
+    }
 
+    const medals = ['🥇', '🥈', '🥉'];
     list.forEach((item, idx) => {
         const row = document.createElement('div');
         row.className = 'lb-row' + (item.isMe ? ' is-me' : '');
@@ -214,11 +254,12 @@ function switchLbTab(tab, silent = false) {
         const scoreStr = tab === 'mines' ? `⏱ ${item.val}с`
                        : tab === 'tetris' ? `${item.val} pts`
                        : `🧪 ${formatCompact(item.val)}`;
+        const displayName = item.isMe ? `${item.name} (Вы)` : item.name;
         row.innerHTML = `
             <div class="lb-left">
                 <div class="lb-rank">${rankStr}</div>
                 <div style="min-width:0;">
-                    <div class="lb-name">${item.name}</div>
+                    <div class="lb-name">${displayName}</div>
                     <div class="lb-tag">${item.tag}</div>
                 </div>
             </div>
@@ -304,6 +345,7 @@ function saveAudioPrefs() {
 function ensureAudio() {
     if (!audioCtx) {
         audioCtx = new AudioCtx();
+
         masterComp = audioCtx.createDynamicsCompressor();
         masterComp.threshold.value = -14;
         masterComp.knee.value = 14;
