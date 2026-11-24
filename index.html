@@ -425,12 +425,18 @@
             <div class="victory-aura" id="ban-reason-badge">Причина: Использование читов / автокликера</div>
         </div>
     </div>
-
     <script>
         const v = Date.now();
-        ['core.js', 'zlab.js', 'mines.js', 'tetris.js', 'mahjong.js', 'aim.js'].forEach(file => {
+        [
+            'core.js', 'audio.js', 'fx.js', 'shop.js', 'social.js',
+            'zlab.js', 'mines.js', 'tetris.js', 'mahjong.js', 'aim.js'
+        ].forEach(file => {
             document.write(`<script src="${file}?v=${v}"><\/script>`);
         });
     </script>
+</body>
+</html>
+
+    
 </body>
 </html>
