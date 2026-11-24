@@ -26,12 +26,16 @@ const ZLAB_UPGRADES = [
 ];
 
 let zState = loadZombieLab();
-let zLabInt = null, zEventInt = null, zFlaskTimer = null, zIsoTimer = null;
+let zLabInt = null, zEventInt = null, zFlaskTimer = null, zIsoTimer = null, zAutoDroneTimer = null;
 let zActiveEvent = null, zTicks = 0;
 
 // Защита от автокликера
 let zClickHistory = [];
 let zLockoutUntil = 0;
+
+function isShopBoostActive() {
+    return typeof getZLabBoostRemaining === 'function' && getZLabBoostRemaining() > 0;
+}
 
 function checkAutoClicker(e) {
     const now = Date.now();
@@ -41,7 +45,6 @@ function checkAutoClicker(e) {
         return true;
     }
 
-    // 1. Блокируем программные скрипты (не настоящие нажатия)
     if (e && e.isTrusted === false) {
         triggerAutoClickerLock(e, 'Скрипт заблокирован!');
         return true;
@@ -54,7 +57,6 @@ function checkAutoClicker(e) {
 
     if (zClickHistory.length >= 12) {
         const span = now - zClickHistory[0].t;
-        // 2. Сверхчеловеческая скорость (> ~18.5 кликов/сек подряд)
         if (span < 650) {
             triggerAutoClickerLock(e, 'Слишком быстро! Анти-автокликер');
             return true;
@@ -69,7 +71,6 @@ function checkAutoClicker(e) {
         const maxDiff = Math.max(...deltas.map(d => Math.abs(d - avg)));
         const sameSpot = recent.every(p => Math.abs(p.x - recent[0].x) <= 1 && Math.abs(p.y - recent[0].y) <= 1);
 
-        // 3. Роботизированный тайминг (разброс < 2.5мс) + одна и та же точка экрана
         if (maxDiff < 2.5 && sameSpot) {
             triggerAutoClickerLock(e, 'Обнаружен автокликер!');
             return true;
@@ -96,8 +97,14 @@ function stopZombieLab() {
 }
 
 function loadZombieLab() {
-    try { const raw = localStorage.getItem('zombieLabSave'); if (raw) return JSON.parse(raw); } catch {}
-    return { mutagen: 0, total: 0, owned: {} };
+    try {
+        const raw = localStorage.getItem('zombieLabSave');
+        if (raw) {
+            const parsed = JSON.parse(raw);
+            return { mutagen: 0, total: 0, owned: {}, maxStageIdx: 0, ...parsed };
+        }
+    } catch {}
+    return { mutagen: 0, total: 0, owned: {}, maxStageIdx: 0 };
 }
 
 function saveZombieLab() {
@@ -138,8 +145,8 @@ function openZombieLab() {
     zTicks = 0;
     zLabInt = setInterval(() => {
         const { perSec } = getZLabStats();
-        let secMult = 1;
-        if (zActiveEvent && zActiveEvent.type === 'alien') secMult = 4;
+        let secMult = isShopBoostActive() ? 2 : 1;
+        if (zActiveEvent && zActiveEvent.type === 'alien') secMult *= 4;
         if (zActiveEvent && (zActiveEvent.type === 'cryo' || zActiveEvent.type === 'vampire')) secMult = 0;
 
         if (perSec > 0 && secMult > 0) {
@@ -295,30 +302,57 @@ function clearZLabEvent() {
 function spawnFloatingBtn(id, dur) {
     const el = document.getElementById(id);
     const maxX = Math.max(40, window.innerWidth - 105), maxY = Math.max(120, window.innerHeight - 200);
-    el.style.left = (20 + Math.random() * maxX) + 'px';
-    el.style.top = (100 + Math.random() * (maxY - 100)) + 'px';
+    const left = 20 + Math.random() * maxX;
+    const top = 100 + Math.random() * (maxY - 100);
+    el.style.left = left + 'px';
+    el.style.top = top + 'px';
     el.classList.add('active'); sfxFlag();
-    if (id === 'zlab-golden-flask') { clearTimeout(zFlaskTimer); zFlaskTimer = setTimeout(() => el.classList.remove('active'), dur); }
-    else { clearTimeout(zIsoTimer); zIsoTimer = setTimeout(() => el.classList.remove('active'), dur); }
+
+    if (id === 'zlab-golden-flask') {
+        clearTimeout(zFlaskTimer);
+        clearTimeout(zAutoDroneTimer);
+        zFlaskTimer = setTimeout(() => el.classList.remove('active'), dur);
+
+        // Дрон-сборщик из магазина
+        if (typeof hasShopItem === 'function' && hasShopItem('z_autoflask')) {
+            zAutoDroneTimer = setTimeout(() => {
+                if (el.classList.contains('active')) {
+                    catchGoldenFlask({ stopPropagation: () => {}, clientX: left + 25, clientY: top + 25 });
+                }
+            }, 1200);
+        }
+    } else {
+        clearTimeout(zIsoTimer);
+        zIsoTimer = setTimeout(() => el.classList.remove('active'), dur);
+    }
 }
 
 function hideFloatingEvents() {
     clearTimeout(zFlaskTimer); zFlaskTimer = null;
     clearTimeout(zIsoTimer); zIsoTimer = null;
+    clearTimeout(zAutoDroneTimer); zAutoDroneTimer = null;
     const f = document.getElementById('zlab-golden-flask'), iso = document.getElementById('zlab-isotope');
     if (f) f.classList.remove('active');
     if (iso) iso.classList.remove('active');
 }
 
 function catchGoldenFlask(e) {
-    e.stopPropagation(); clearTimeout(zFlaskTimer);
+    if (e && e.stopPropagation) e.stopPropagation();
+    clearTimeout(zFlaskTimer);
+    clearTimeout(zAutoDroneTimer);
     document.getElementById('zlab-golden-flask').classList.remove('active');
     const { perClick, perSec } = getZLabStats();
     const bonus = Math.max(80, perClick * 25 + perSec * 18);
     zState.mutagen += bonus; zState.total += bonus;
+
+    const gemReward = (typeof hasShopItem === 'function' && hasShopItem('z_gem_drill')) ? 5 : 2;
+    if (typeof addGems === 'function') addGems(gemReward);
+
     sfxVictory(); triggerShake(true); doVibrate([50, 30, 100]);
-    spawnBurst(e.clientX, e.clientY, 45, ['#fbbf24', '#fef08a', '#ffffff'], 1.3);
-    spawnFloatText(e.clientX, e.clientY - 20, `🌟 ЗОЛОТАЯ КОЛБА! +${formatNum(bonus)} 🧪`, '#fbbf24');
+    const cx = e.clientX || window.innerWidth / 2;
+    const cy = e.clientY || window.innerHeight / 2;
+    spawnBurst(cx, cy, 45, ['#fbbf24', '#fef08a', '#ffffff'], 1.3);
+    spawnFloatText(cx, cy - 20, `🌟 КОЛБА! +${formatNum(bonus)} 🧪 • +${gemReward} 💎`, '#fbbf24');
     saveZombieLab(); updateZLabNumbers();
 }
 
@@ -357,11 +391,12 @@ function tapReactor(e) {
     }
 
     const { perClick, perSec } = getZLabStats();
-    let mult = 1, burstColors = ['#4ade80', '#86efac', '#ffffff'], txtColor = '#4ade80';
+    let mult = isShopBoostActive() ? 2 : 1;
+    let burstColors = ['#4ade80', '#86efac', '#ffffff'], txtColor = '#4ade80';
     if (zActiveEvent) {
-        if (zActiveEvent.type === 'breach' || zActiveEvent.type === 'vampire') { mult = 2; burstColors = ['#ef4444', '#fbbf24']; txtColor = '#fbbf24'; }
-        else if (zActiveEvent.type === 'overdrive') { mult = 3; burstColors = ['#fbbf24', '#f97316', '#ffffff']; txtColor = '#fbbf24'; }
-        else if (zActiveEvent.type === 'cryo') { mult = 1; burstColors = ['#7dd3fc', '#ffffff']; txtColor = '#7dd3fc'; }
+        if (zActiveEvent.type === 'breach' || zActiveEvent.type === 'vampire') { mult *= 2; burstColors = ['#ef4444', '#fbbf24']; txtColor = '#fbbf24'; }
+        else if (zActiveEvent.type === 'overdrive') { mult *= 3; burstColors = ['#fbbf24', '#f97316', '#ffffff']; txtColor = '#fbbf24'; }
+        else if (zActiveEvent.type === 'cryo') { burstColors = ['#7dd3fc', '#ffffff']; txtColor = '#7dd3fc'; }
     }
 
     const gain = perClick * mult;
@@ -399,15 +434,41 @@ function buyUpgrade(id) {
 
 function updateZLabNumbers() {
     const { perClick, perSec } = getZLabStats();
-    const clickMult = (zActiveEvent && zActiveEvent.type === 'overdrive') ? 3 : (zActiveEvent && (zActiveEvent.type === 'breach' || zActiveEvent.type === 'vampire')) ? 2 : 1;
-    const secMult = (zActiveEvent && zActiveEvent.type === 'alien') ? 4 : (zActiveEvent && (zActiveEvent.type === 'cryo' || zActiveEvent.type === 'vampire')) ? 0 : 1;
+    const shopMult = isShopBoostActive() ? 2 : 1;
+    const clickMult = shopMult * ((zActiveEvent && zActiveEvent.type === 'overdrive') ? 3 : (zActiveEvent && (zActiveEvent.type === 'breach' || zActiveEvent.type === 'vampire')) ? 2 : 1);
+    const secMult = shopMult * ((zActiveEvent && zActiveEvent.type === 'alien') ? 4 : (zActiveEvent && (zActiveEvent.type === 'cryo' || zActiveEvent.type === 'vampire')) ? 0 : 1);
 
     document.getElementById('zlab-val').innerText = formatNum(zState.mutagen);
     document.getElementById('zlab-click').innerText = formatNum(perClick * clickMult);
     document.getElementById('zlab-sec').innerText = formatNum(perSec * secMult);
 
-    let stage = ZLAB_STAGES[0];
-    for (const s of ZLAB_STAGES) if (zState.total >= s.min) stage = s;
+    const boostPill = document.getElementById('zlab-boost-pill');
+    if (boostPill) {
+        const rem = typeof getZLabBoostRemaining === 'function' ? getZLabBoostRemaining() : 0;
+        if (rem > 0) {
+            const totalSec = Math.ceil(rem / 1000);
+            const m = Math.floor(totalSec / 60);
+            const s = String(totalSec % 60).padStart(2, '0');
+            boostPill.style.display = 'inline-block';
+            boostPill.innerText = `⚡ БУСТ ×2: ${m}:${s}`;
+        } else {
+            boostPill.style.display = 'none';
+        }
+    }
+
+    let stageIdx = 0;
+    ZLAB_STAGES.forEach((s, idx) => {
+        if (zState.total >= s.min) stageIdx = idx;
+    });
+    const stage = ZLAB_STAGES[stageIdx];
+
+    if (stageIdx > (zState.maxStageIdx || 0)) {
+        zState.maxStageIdx = stageIdx;
+        if (typeof addGems === 'function') {
+            addGems(15, 'Новая стадия');
+        }
+    }
+
     let icon = stage.icon;
     if (zActiveEvent) {
         if (zActiveEvent.type === 'cryo') icon = '🧊';
@@ -441,6 +502,7 @@ function renderZombieLab() {
 
 function resetZombieLab() {
     if (!confirm('Сбросить весь прогресс Зомби-Лаборатории?')) return;
-    zState = { mutagen: 0, total: 0, owned: {} };
+    const keptStage = zState.maxStageIdx || 0;
+    zState = { mutagen: 0, total: 0, owned: {}, maxStageIdx: keptStage };
     clearZLabEvent(); hideFloatingEvents(); saveZombieLab(); renderZombieLab();
 }
