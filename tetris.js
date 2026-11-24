@@ -4,7 +4,6 @@ const tNextCanvas = document.getElementById('tetris-next');
 const tNextCtx = tNextCanvas ? tNextCanvas.getContext('2d') : null;
 
 let tBoard = [], tPiece = null, tNextId = null, tScore = 0, tInt = null, tBusy = false;
-const T_COLORS = [null, '#38bdf8', '#fbbf24', '#a855f7', '#4ade80', '#ef4444', '#3b82f6', '#f97316'];
 const T_SHAPES = [
     null,
     [[1,1,1,1]],
@@ -15,6 +14,12 @@ const T_SHAPES = [
     [[6,0,0],[6,6,6]],
     [[0,0,7],[7,7,7]]
 ];
+
+function getActiveTColors() {
+    return (typeof getTetrisColors === 'function')
+        ? getTetrisColors()
+        : [null, '#38bdf8', '#fbbf24', '#a855f7', '#4ade80', '#ef4444', '#3b82f6', '#f97316'];
+}
 
 function stopTetris() {
     if (tInt) { clearInterval(tInt); tInt = null; }
@@ -56,7 +61,12 @@ function spawnT() {
         doVibrate([100, 50, 100]);
 
         const isNewBest = updateRecord('tetris', tScore);
-        document.getElementById('tetris-res-sub').innerText = `Твой счёт: ${tScore}`;
+        const earnedGems = tScore >= 50 ? Math.max(2, Math.floor(tScore / 50)) : 0;
+        if (earnedGems > 0 && typeof addGems === 'function') addGems(earnedGems);
+
+        document.getElementById('tetris-res-sub').innerText = earnedGems > 0
+            ? `Твой счёт: ${tScore} (+${earnedGems} 💎)`
+            : `Твой счёт: ${tScore}`;
         document.getElementById('tetris-res-badge').innerText = isNewBest
             ? `🔥 НОВЫЙ РЕКОРД: ${hubRecords.tetris}!`
             : `🏆 Лучший рекорд: ${hubRecords.tetris}`;
@@ -114,6 +124,7 @@ async function stepT() {
 
 async function hardDropT() {
     if (tBusy || !tPiece) return;
+    const colors = getActiveTColors();
     let dropped = 0;
     while (!collAt(tPiece.s, tPiece.x, tPiece.y + 1)) {
         tPiece.y++;
@@ -123,7 +134,7 @@ async function hardDropT() {
         tScore += dropped * 2;
         document.getElementById('tetris-score').innerText = tScore;
         const rect = tCanvas.getBoundingClientRect();
-        spawnBurst(rect.left + (tPiece.x + 1) * 20, rect.top + (tPiece.y + 1) * 20, 12, [T_COLORS[tPiece.c], '#ffffff']);
+        spawnBurst(rect.left + (tPiece.x + 1) * 20, rect.top + (tPiece.y + 1) * 20, 12, [colors[tPiece.c], '#ffffff']);
         triggerShake(false);
     }
     drawT();
@@ -168,6 +179,7 @@ async function clearLinesT() {
 
 function drawNextT() {
     if (!tNextCtx || !tNextId) return;
+    const colors = getActiveTColors();
     tNextCtx.fillStyle = isMinimalMode() ? '#1c1f26' : '#0f172a';
     tNextCtx.fillRect(0, 0, 64, 64);
 
@@ -180,7 +192,7 @@ function drawNextT() {
         if (!v) return;
         const px = ox + dx * bs;
         const py = oy + dy * bs;
-        tNextCtx.fillStyle = T_COLORS[v];
+        tNextCtx.fillStyle = colors[v];
         tNextCtx.fillRect(px, py, bs - 1, bs - 1);
         if (!isMinimalMode()) {
             tNextCtx.fillStyle = 'rgba(255,255,255,0.28)';
@@ -190,11 +202,12 @@ function drawNextT() {
 }
 
 function drawT() {
+    const colors = getActiveTColors();
     tCtx.fillStyle = isMinimalMode() ? '#1c1f26' : '#1e293b';
     tCtx.fillRect(0, 0, 200, 400);
 
     tBoard.forEach((row, y) => row.forEach((v, x) => {
-        if (v) drawBlock(x, y, T_COLORS[v]);
+        if (v) drawBlock(x, y, colors[v]);
     }));
 
     if (tPiece) {
@@ -214,7 +227,7 @@ function drawT() {
         }
 
         tPiece.s.forEach((row, dy) => row.forEach((v, dx) => {
-            if (v) drawBlock(tPiece.x + dx, tPiece.y + dy, T_COLORS[tPiece.c]);
+            if (v) drawBlock(tPiece.x + dx, tPiece.y + dy, colors[tPiece.c]);
         }));
     }
 }
