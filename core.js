@@ -1,14 +1,16 @@
-// ==================== НАСТРОЙКИ БАЗЫ И АДМИНКИ ====================
+// ==================== НАСТРОЙКИ БАЗЫ, КУРСА И АДМИНКИ ====================
 const FIREBASE_URL = 'https://gamehubonline-7b970-default-rtdb.firebaseio.com';
-const ADMIN_PIN = '20100420Ki';
+const ADMIN_PIN = '7777';
+const GEM_RATE_RUB = 10; // Курс валюты: 1 ₽ = 10 💎
+const DONATE_URL = '';   // Сюда позже вставишь ссылку на Tribute / DonationAlerts
 
 // ==================== СИСТЕМА ОБНОВЛЕНИЙ ====================
-const APP_VERSION = '2.2';
+const APP_VERSION = '3.4';
 const CHANGELOG = [
-    '🛒 Открыт Магазин предметов: скины для Тетриса, темы Маджонга, значки в топ и бусты!',
-    '🎁 Добавлен Ежедневный бонус гемов с растущей наградой за серию входов',
-    '💎 Кристаллы теперь начисляются за победы в Сапёре, Тетрисе, Маджонге и Зомби-лабе',
-    '👑 Купленные значки и золотая подсветка отображаются прямо в таблице лидеров'
+    `💱 Добавлен курс валюты (1 ₽ = ${GEM_RATE_RUB} 💎) и калькулятор кристаллов в Магазине`,
+    '🛒 Магазин предметов: дорогие скины для Тетриса, темы Маджонга, значки в топ и бусты',
+    '🎁 Ежедневный бонус кристаллов с растущей наградой за серию входов',
+    '👑 В админке теперь можно выдать игроку любое точное число гемов или посчитать по курсу'
 ];
 
 function initUpdateBadge() {
@@ -101,6 +103,7 @@ let currentShopTab = 'tetris';
 function loadEcoState() {
     const def = {
         gems: 0,
+        claimedIssuedGems: 0,
         owned: ['tskin_default', 'mj_default', 'badge_none', 'glow_default'],
         equipped: {
             tetris_skin: 'tskin_default',
@@ -139,12 +142,13 @@ function getGems() {
 
 function addGems(amount, reason = '') {
     const add = Math.floor(amount);
-    if (add <= 0) return;
-    ecoState.gems = getGems() + add;
+    if (add === 0) return;
+    ecoState.gems = Math.max(0, getGems() + add);
     saveEcoState();
     syncGemsToCloud();
     if (reason) {
-        spawnFloatText(window.innerWidth / 2, window.innerHeight / 2 - 40, `+${add} 💎 (${reason})`, '#e879f9');
+        const sign = add > 0 ? `+${add}` : `${add}`;
+        spawnFloatText(window.innerWidth / 2, window.innerHeight / 2 - 40, `${sign} 💎 (${reason})`, add > 0 ? '#e879f9' : '#ef4444');
     }
 }
 
@@ -255,17 +259,74 @@ function openShop(tab = 'tetris') {
 function switchShopTab(tab, silent = false) {
     if (!silent) sfxClick();
     currentShopTab = tab;
-    ['tetris', 'mahjong', 'profile', 'boosts'].forEach(t => {
+    ['tetris', 'mahjong', 'profile', 'boosts', 'topup'].forEach(t => {
         const el = document.getElementById('shoptab-' + t);
         if (el) el.classList.toggle('active', t === tab);
     });
     renderShopItems();
 }
 
+function updateRateCalc() {
+    const inp = document.getElementById('rate-rub-input');
+    const out = document.getElementById('rate-gems-output');
+    if (!inp || !out) return;
+    const rub = Math.max(0, Math.floor(Number(inp.value) || 0));
+    out.innerText = `= ${rub * GEM_RATE_RUB} 💎`;
+}
+
+function setRatePreset(rub) {
+    sfxClick();
+    const inp = document.getElementById('rate-rub-input');
+    if (inp) {
+        inp.value = rub;
+        updateRateCalc();
+    }
+}
+
+function copyPlayerTagForTopup() {
+    sfxPop();
+    const ident = (rawTgUser && rawTgUser.username) ? '@' + rawTgUser.username : myPlayerId;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(ident).catch(() => {});
+    }
+    spawnFloatText(window.innerWidth / 2, window.innerHeight / 2, `📋 Скопировано: ${ident}`, '#4ade80');
+}
+
 function renderShopItems() {
     const listEl = document.getElementById('shop-list');
     if (!listEl) return;
     listEl.innerHTML = '';
+
+    if (currentShopTab === 'topup') {
+        const ident = (rawTgUser && rawTgUser.username) ? '@' + rawTgUser.username : myPlayerId;
+        const donateBtnHtml = DONATE_URL
+            ? `<button class="btn btn-green" style="width:100%;" onclick="sfxClick(); window.open('${DONATE_URL}', '_blank')">💳 ПЕРЕЙТИ К ОПЛАТЕ</button>`
+            : `<div style="font-size:0.74rem; color:#94a3b8; text-align:center; line-height:1.35;">Чтобы пополнить баланс по курсу, переведи нужную сумму администратору и укажи свой ник — гемы придут автоматически.</div>`;
+
+        listEl.innerHTML = `
+            <div class="rate-card">
+                <div class="rate-banner">💱 КУРС: 1 ₽ = ${GEM_RATE_RUB} 💎</div>
+                <div style="font-size:0.78rem; color:#cbd5e1; text-align:center;">Введи сумму, чтобы посчитать гемы:</div>
+                <div class="rate-calc-row">
+                    <input type="number" id="rate-rub-input" class="rate-input" value="100" min="1" oninput="updateRateCalc()">
+                    <span style="font-weight:900; color:#94a3b8;">₽</span>
+                    <div id="rate-gems-output" class="rate-result">= ${100 * GEM_RATE_RUB} 💎</div>
+                </div>
+                <div class="rate-presets">
+                    <button class="rate-preset-btn" onclick="setRatePreset(50)">50 ₽</button>
+                    <button class="rate-preset-btn" onclick="setRatePreset(100)">100 ₽</button>
+                    <button class="rate-preset-btn" onclick="setRatePreset(250)">250 ₽</button>
+                    <button class="rate-preset-btn" onclick="setRatePreset(500)">500 ₽</button>
+                </div>
+                <div class="rate-id-box">
+                    <span>Твой ник для зачисления: <b style="color:#fff;">${ident}</b></span>
+                    <button class="btn btn-xs" style="border-color:var(--accent);" onclick="copyPlayerTagForTopup()">📋</button>
+                </div>
+                ${donateBtnHtml}
+            </div>
+        `;
+        return;
+    }
 
     const items = SHOP_CATALOG.filter(x => x.cat === currentShopTab);
     const gems = getGems();
@@ -389,7 +450,7 @@ function initTgProfile() {
 }
 initTgProfile();
 
-// ==================== РЕГИСТРАЦИЯ ИГРОКА И СИСТЕМА БАНА ====================
+// ==================== РЕГИСТРАЦИЯ ИГРОКА, СИНХРОНИЗАЦИЯ ГЕМОВ И БАН ====================
 function getPlayerId() {
     if (rawTgUser && rawTgUser.id) return 'tg_' + rawTgUser.id;
     let fallbackId = null;
@@ -405,21 +466,40 @@ const myPlayerId = getPlayerId();
 let isUserBanned = false;
 let isBanSyncing = false;
 
-function syncGemsToCloud() {
+async function syncGemsToCloud() {
     const baseUrl = FIREBASE_URL.replace(/\/+$/, '');
     if (!baseUrl.startsWith('http')) return;
-    fetch(`${baseUrl}/players/${myPlayerId}.json`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            name: tgUser.name,
-            tag: tgUser.username,
-            gems: getGems(),
-            badge: getEquippedBadgeText(),
-            lbStyle: getEquippedLbStyle(),
-            lastSeen: Date.now()
-        })
-    }).catch(() => {});
+    try {
+        const res = await fetch(`${baseUrl}/players/${myPlayerId}.json?t=${Date.now()}`, { cache: 'no-store' });
+        const existing = (res.ok ? await res.json() : null) || {};
+        const cloudIssued = Number(existing.issuedGems) || 0;
+
+        // Проверяем, не начислил ли админ новые гемы в облаке
+        if (cloudIssued !== (ecoState.claimedIssuedGems || 0)) {
+            const diff = cloudIssued - (ecoState.claimedIssuedGems || 0);
+            ecoState.gems = Math.max(0, getGems() + diff);
+            ecoState.claimedIssuedGems = cloudIssued;
+            saveEcoState();
+            if (diff > 0) {
+                sfxVictory();
+                spawnFloatText(window.innerWidth / 2, 120, `💎 Зачислено +${diff} 💎!`, '#4ade80');
+            }
+        }
+
+        await fetch(`${baseUrl}/players/${myPlayerId}.json`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                name: tgUser.name,
+                tag: tgUser.username,
+                gems: getGems(),
+                issuedGems: cloudIssued,
+                badge: getEquippedBadgeText(),
+                lbStyle: getEquippedLbStyle(),
+                lastSeen: Date.now()
+            })
+        });
+    } catch {}
 }
 syncGemsToCloud();
 
@@ -536,6 +616,7 @@ async function checkBanStatus(manual = false) {
             if (manual && btn) btn.innerText = '⛔ Бан подтверждён';
         } else {
             clearLocalBanScreen();
+            syncGemsToCloud();
         }
     } catch {
         if (manual && btn) btn.innerText = '⚠️ Нет связи с базой (включи VPN)';
@@ -765,7 +846,7 @@ async function switchLbTab(tab, silent = false) {
     });
 }
 
-// ==================== АДМИН-ПАНЕЛЬ (БАН, СБРОС И ВЫДАЧА ГЕМОВ) ====================
+// ==================== АДМИН-ПАНЕЛЬ (БАН, СБРОС И ВЫДАЧА ГЕМОВ ПО КУРСУ) ====================
 function isAdminAuthed() {
     try { return localStorage.getItem('gameHubAdminPin') === ADMIN_PIN; } catch { return false; }
 }
@@ -806,7 +887,7 @@ function openAdminPanel() {
 
     sfxClick();
     showScreen('admin-screen');
-    document.getElementById('admin-my-id').innerText = `Твой ID: ${myPlayerId}`;
+    document.getElementById('admin-my-id').innerText = `Твой ID: ${myPlayerId} • Курс: 1₽ = ${GEM_RATE_RUB}💎`;
     renderAdminList();
 }
 
@@ -885,7 +966,7 @@ async function renderAdminList() {
                     <span>🧪 ${formatCompact(p.zlab || 0)}</span>
                 </div>
                 <div class="admin-actions" style="grid-template-columns: 1fr 1fr 1fr;">
-                    <button class="btn btn-xs" style="border-color:#e879f9; color:#f5d0fe;" onclick="adminGiveGems('${p.id}', '${safeName}', 100)">+100 💎</button>
+                    <button class="btn btn-xs" style="border-color:#e879f9; color:#f5d0fe;" onclick="adminGiveGemsPrompt('${p.id}', '${safeName}')">💎 Гемы</button>
                     <button class="btn btn-xs" style="border-color:#fbbf24; color:#fbbf24;" onclick="adminResetPlayer('${p.id}', '${safeName}')">🔄 Сброс</button>
                     <button class="btn btn-xs ${p.banned ? 'btn-green' : 'btn-red'}" onclick="adminToggleBan('${p.id}', '${safeName}', '${safeTag}', ${p.banned})">
                         ${p.banned ? '✅ Разбан' : '🚫 Бан'}
@@ -899,26 +980,66 @@ async function renderAdminList() {
     }
 }
 
-async function adminGiveGems(playerId, name, amount) {
+async function adminGiveGemsPrompt(playerId, name) {
+    const raw = prompt(
+        `Сколько выдать игроку ${name}?\n` +
+        `• Введи число гемов (напр. 500)\n` +
+        `• Или сумму в рублях с буквой р (напр. 75р = ${75 * GEM_RATE_RUB} 💎)\n` +
+        `• С минусом для списания (напр. -100)`
+    );
+    if (raw === null) return;
+
+    const clean = raw.trim().toLowerCase().replace(/\s+/g, '');
+    if (!clean) return;
+
+    let amount = 0;
+    if (clean.endsWith('р') || clean.endsWith('p') || clean.endsWith('rub')) {
+        const rub = parseFloat(clean.replace(/[рprub]/g, ''));
+        if (isNaN(rub) || rub === 0) {
+            alert('Неверная сумма!');
+            return;
+        }
+        amount = Math.round(rub * GEM_RATE_RUB);
+    } else {
+        amount = Math.round(Number(clean));
+        if (isNaN(amount) || amount === 0) {
+            alert('Введи корректное число!');
+            return;
+        }
+    }
+
+    const actionWord = amount > 0 ? `Выдать +${amount} 💎` : `Списать ${amount} 💎`;
+    if (!confirm(`${actionWord} игроку ${name}?`)) return;
+
     sfxClick();
     if (playerId === myPlayerId) {
-        addGems(amount, 'Админ-выдача');
+        addGems(amount, amount > 0 ? 'Админ-выдача' : 'Списание');
         renderAdminList();
         return;
     }
+
     const baseUrl = FIREBASE_URL.replace(/\/+$/, '');
     try {
         const res = await fetch(`${baseUrl}/players/${playerId}.json?t=${Date.now()}`, { cache: 'no-store' });
         const info = (await res.json()) || {};
-        const nextGems = (Number(info.gems) || 0) + amount;
+        const nextIssued = (Number(info.issuedGems) || 0) + amount;
+        const nextGems = Math.max(0, (Number(info.gems) || 0) + amount);
+
         await fetch(`${baseUrl}/players/${playerId}.json`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ...info, gems: nextGems, lastSeen: Date.now() })
+            body: JSON.stringify({
+                ...info,
+                gems: nextGems,
+                issuedGems: nextIssued,
+                lastSeen: Date.now()
+            })
         });
         sfxVictory();
         renderAdminList();
-    } catch {}
+    } catch {
+        alert('Ошибка связи с базой!');
+    }
 }
 
 async function adminResetPlayer(playerId, name) {
@@ -949,7 +1070,7 @@ async function adminToggleBan(playerId, name, tag, currentlyBanned) {
         await Promise.all([
             fetch(`${baseUrl}/banned/${playerId}.json`, { method: 'DELETE' }),
             fetch(`${baseUrl}/players/${playerId}.json`, {
-                method: 'PUT',
+                method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ name, tag, lastSeen: Date.now() })
             })
@@ -963,7 +1084,7 @@ async function adminToggleBan(playerId, name, tag, currentlyBanned) {
                 body: JSON.stringify({ banned: true, name, tag, reason: 'Читы / Автокликер', date: Date.now() })
             }),
             fetch(`${baseUrl}/players/${playerId}.json`, {
-                method: 'PUT',
+                method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ name, tag, lastSeen: Date.now() })
             }),
