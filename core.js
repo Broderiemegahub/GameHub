@@ -6,12 +6,12 @@ const TOPUP_ENABLED = false; // false = вкладка «Курс» закрыт
 const DONATE_URL = '';       // Сюда позже вставишь ссылку на Tribute / DonationAlerts
 
 // ==================== СИСТЕМА ОБНОВЛЕНИЙ ====================
-const APP_VERSION = '2.3';
+const APP_VERSION = '2.4';
 const CHANGELOG = [
-    '🛒 Открыт Магазин предметов: скины для Тетриса, темы Маджонга, значки в топ и бусты',
-    '🎁 Ежедневный бонус кристаллов с растущей наградой за серию входов',
-    '💎 Кристаллы теперь начисляются за победы в Сапёре, Тетрисе, Маджонге и Зомби-лабе',
-    '🔒 Раздел пополнения по курсу подготовлен и временно закрыт до запуска донатов'
+    '🎯 Добавлена 5-я игра — «Cyber Aim» (аим-тренажёр на реакцию и комбо за 30 секунд!)',
+    '🏆 В таблицу лидеров добавлена 4-я вкладка с рекордами Cyber Aim',
+    '💎 За высокие очки в Cyber Aim автоматически начисляются кристаллы',
+    '🔔 Подключены уведомления от бота в личку при пополнении баланса админом'
 ];
 
 function initUpdateBadge() {
@@ -599,7 +599,8 @@ async function banCurrentPlayer(reason) {
             }),
             fetch(`${baseUrl}/leaderboard/mines/${myPlayerId}.json`, { method: 'DELETE' }),
             fetch(`${baseUrl}/leaderboard/tetris/${myPlayerId}.json`, { method: 'DELETE' }),
-            fetch(`${baseUrl}/leaderboard/zlab/${myPlayerId}.json`, { method: 'DELETE' })
+            fetch(`${baseUrl}/leaderboard/zlab/${myPlayerId}.json`, { method: 'DELETE' }),
+            fetch(`${baseUrl}/leaderboard/aim/${myPlayerId}.json`, { method: 'DELETE' })
         ]);
     } catch {}
     isBanSyncing = false;
@@ -682,7 +683,7 @@ let hubRecords = loadHubRecords();
 let currentLbTab = 'mines';
 
 function loadHubRecords() {
-    let data = { mines: null, tetris: 0, zlab: 0 };
+    let data = { mines: null, tetris: 0, zlab: 0, aim: 0 };
     try {
         const raw = localStorage.getItem('gameHubRecords');
         if (raw) data = { ...data, ...JSON.parse(raw) };
@@ -723,6 +724,7 @@ function syncExistingRecords() {
     if (hubRecords.mines !== null && hubRecords.mines > 0) pushScoreToCloud('mines', hubRecords.mines);
     if (hubRecords.tetris > 0) pushScoreToCloud('tetris', hubRecords.tetris);
     if (hubRecords.zlab > 0) pushScoreToCloud('zlab', hubRecords.zlab);
+    if (hubRecords.aim > 0) pushScoreToCloud('aim', hubRecords.aim);
 }
 setTimeout(syncExistingRecords, 2000);
 
@@ -739,6 +741,10 @@ function updateRecord(game, val) {
     } else if (game === 'zlab') {
         if (val > hubRecords.zlab) {
             hubRecords.zlab = Math.floor(val); saveHubRecords(); pushScoreToCloud('zlab', hubRecords.zlab); return true;
+        }
+    } else if (game === 'aim') {
+        if (val > (hubRecords.aim || 0)) {
+            hubRecords.aim = Math.floor(val); saveHubRecords(); pushScoreToCloud('aim', hubRecords.aim); return true;
         }
     }
     return false;
@@ -761,8 +767,9 @@ function openLeaderboard(tab = 'mines') {
 async function switchLbTab(tab, silent = false) {
     if (!silent) sfxClick();
     currentLbTab = tab;
-    ['mines', 'tetris', 'zlab'].forEach(t => {
-        document.getElementById('lbtab-' + t).classList.toggle('active', t === tab);
+    ['mines', 'tetris', 'zlab', 'aim'].forEach(t => {
+        const el = document.getElementById('lbtab-' + t);
+        if (el) el.classList.toggle('active', t === tab);
     });
 
     const listEl = document.getElementById('lb-list');
@@ -802,8 +809,8 @@ async function switchLbTab(tab, silent = false) {
         } catch {}
     }
 
-    const myVal = hubRecords[tab];
-    const hasScore = !isUserBanned && (tab === 'mines' ? (myVal !== null && myVal > 0) : (myVal > 0));
+    const myVal = hubRecords[tab] || 0;
+    const hasScore = !isUserBanned && (tab === 'mines' ? (hubRecords.mines !== null && hubRecords.mines > 0) : (myVal > 0));
     if (hasScore && !list.some(x => x.isMe)) {
         list.push({
             id: myPlayerId,
@@ -826,16 +833,18 @@ async function switchLbTab(tab, silent = false) {
         const myRank = list.indexOf(meEntry) + 1;
         const valText = tab === 'mines' ? `${meEntry.val} сек`
                       : tab === 'tetris' ? `${meEntry.val} очков`
+                      : tab === 'aim' ? `${meEntry.val} pts`
                       : `${formatCompact(meEntry.val)} 🧪`;
         summaryEl.innerHTML = `<span>Твоё место: #${myRank}</span><span>Рекорд: ${valText}</span>`;
 
         const shareText = tab === 'mines' ? `💣 Мой рекорд в Сапёре (Game Hub) — ${meEntry.val} сек (#${myRank} в топе)! Попробуй побить!`
                         : tab === 'tetris' ? `🧱 Мой рекорд в Тетрисе (Game Hub) — ${meEntry.val} очков (#${myRank} в топе)! Сможешь больше?`
+                        : tab === 'aim' ? `🎯 Мой рекорд в Cyber Aim (Game Hub) — ${meEntry.val} очков (#${myRank} в топе)! Попробуй перестрелять!`
                         : `🧪 Я нафармил ${formatCompact(meEntry.val)} мутагена в Зомби-Лабе (#${myRank} в топе)! Залетай!`;
         shareBtn.onclick = () => { sfxClick(); shareGameScore(shareText); };
     } else {
         summaryEl.innerHTML = `<span>Ты ещё не в топе</span><span>Сыграй катку!</span>`;
-        shareBtn.onclick = () => { sfxClick(); shareGameScore('🎮 Залетай в Game Hub — тут Сапёр, Тетрис, Маджонг и Зомби-Лаба!'); };
+        shareBtn.onclick = () => { sfxClick(); shareGameScore('🎮 Залетай в Game Hub — тут Сапёр, Тетрис, Маджонг, Зомби-Лаба и Cyber Aim!'); };
     }
 
     listEl.innerHTML = '';
@@ -852,6 +861,7 @@ async function switchLbTab(tab, silent = false) {
         const rankStr = medals[idx] || `#${idx + 1}`;
         const scoreStr = tab === 'mines' ? `⏱ ${item.val}с`
                        : tab === 'tetris' ? `${item.val} pts`
+                       : tab === 'aim' ? `🎯 ${item.val}`
                        : `🧪 ${formatCompact(item.val)}`;
         const badgeHtml = item.badge ? ` <span class="lb-badge-tag">${item.badge}</span>` : '';
         const displayName = (item.isMe ? `${item.name} (Вы)` : item.name) + badgeHtml;
@@ -860,7 +870,7 @@ async function switchLbTab(tab, silent = false) {
     });
 }
 
-// ==================== АДМИН-ПАНЕЛЬ (БАН, СБРОС И ВЫДАЧА ГЕМОВ ПО КУРСУ) ====================
+// ==================== АДМИН-ПАНЕЛЬ (БАН, СБРОС, ВЫДАЧА ГЕМОВ И УВЕДОМЛЕНИЯ) ====================
 function isAdminAuthed() {
     try { return localStorage.getItem('gameHubAdminPin') === ADMIN_PIN; } catch { return false; }
 }
@@ -925,15 +935,15 @@ async function renderAdminList() {
 
         Object.entries(playersData).forEach(([id, info]) => {
             if (info && typeof info === 'object') {
-                playersMap[id] = { id, name: info.name || 'Игрок', tag: info.tag || '', gems: info.gems || 0, mines: null, tetris: 0, zlab: 0, banned: false };
+                playersMap[id] = { id, name: info.name || 'Игрок', tag: info.tag || '', gems: info.gems || 0, mines: null, tetris: 0, zlab: 0, aim: 0, banned: false };
             }
         });
 
-        ['mines', 'tetris', 'zlab'].forEach(game => {
+        ['mines', 'tetris', 'zlab', 'aim'].forEach(game => {
             const gObj = lbData[game] || {};
             Object.entries(gObj).forEach(([id, info]) => {
                 if (!playersMap[id]) {
-                    playersMap[id] = { id, name: info.name || 'Игрок', tag: info.tag || '', gems: 0, mines: null, tetris: 0, zlab: 0, banned: false };
+                    playersMap[id] = { id, name: info.name || 'Игрок', tag: info.tag || '', gems: 0, mines: null, tetris: 0, zlab: 0, aim: 0, banned: false };
                 }
                 playersMap[id][game] = info.val;
                 if (info.name) playersMap[id].name = info.name;
@@ -944,7 +954,7 @@ async function renderAdminList() {
         Object.entries(banData).forEach(([id, info]) => {
             if (info && info.banned) {
                 if (!playersMap[id]) {
-                    playersMap[id] = { id, name: info.name || 'Забаненный', tag: info.tag || '', gems: 0, mines: null, tetris: 0, zlab: 0, banned: true };
+                    playersMap[id] = { id, name: info.name || 'Забаненный', tag: info.tag || '', gems: 0, mines: null, tetris: 0, zlab: 0, aim: 0, banned: true };
                 } else {
                     playersMap[id].banned = true;
                     if (info.name) playersMap[id].name = info.name;
@@ -978,6 +988,7 @@ async function renderAdminList() {
                     <span>💣 ${p.mines ? p.mines + 'с' : '—'}</span>
                     <span>🧱 ${p.tetris || 0}</span>
                     <span>🧪 ${formatCompact(p.zlab || 0)}</span>
+                    <span>🎯 ${p.aim || 0}</span>
                 </div>
                 <div class="admin-actions" style="grid-template-columns: 1fr 1fr 1fr;">
                     <button class="btn btn-xs" style="border-color:#e879f9; color:#f5d0fe;" onclick="adminGiveGemsPrompt('${p.id}', '${safeName}')">💎 Гемы</button>
@@ -1102,7 +1113,6 @@ async function adminGiveGemsPrompt(playerId, name) {
     }
 }
 
-
 async function adminResetPlayer(playerId, name) {
     if (!confirm(`Обнулить все рекорды игрока ${name}?`)) return;
     sfxClick();
@@ -1110,11 +1120,12 @@ async function adminResetPlayer(playerId, name) {
     await Promise.all([
         fetch(`${baseUrl}/leaderboard/mines/${playerId}.json`, { method: 'DELETE' }),
         fetch(`${baseUrl}/leaderboard/tetris/${playerId}.json`, { method: 'DELETE' }),
-        fetch(`${baseUrl}/leaderboard/zlab/${playerId}.json`, { method: 'DELETE' })
+        fetch(`${baseUrl}/leaderboard/zlab/${playerId}.json`, { method: 'DELETE' }),
+        fetch(`${baseUrl}/leaderboard/aim/${playerId}.json`, { method: 'DELETE' })
     ]).catch(() => {});
 
     if (playerId === myPlayerId) {
-        hubRecords = { mines: null, tetris: 0, zlab: 0 };
+        hubRecords = { mines: null, tetris: 0, zlab: 0, aim: 0 };
         saveHubRecords();
     }
     sfxPop();
@@ -1151,7 +1162,8 @@ async function adminToggleBan(playerId, name, tag, currentlyBanned) {
             }),
             fetch(`${baseUrl}/leaderboard/mines/${playerId}.json`, { method: 'DELETE' }),
             fetch(`${baseUrl}/leaderboard/tetris/${playerId}.json`, { method: 'DELETE' }),
-            fetch(`${baseUrl}/leaderboard/zlab/${playerId}.json`, { method: 'DELETE' })
+            fetch(`${baseUrl}/leaderboard/zlab/${playerId}.json`, { method: 'DELETE' }),
+            fetch(`${baseUrl}/leaderboard/aim/${playerId}.json`, { method: 'DELETE' })
         ]).catch(() => {});
     }
     sfxExplosion();
@@ -1605,9 +1617,12 @@ function stopAllGames() {
     document.getElementById('mj-victory-overlay').classList.remove('active');
     document.getElementById('mines-result-overlay').classList.remove('active');
     document.getElementById('tetris-result-overlay').classList.remove('active');
+    const aimOverlay = document.getElementById('aim-result-overlay');
+    if (aimOverlay) aimOverlay.classList.remove('active');
     if (typeof stopMines === 'function') stopMines();
     if (typeof stopTetris === 'function') stopTetris();
     if (typeof stopZombieLab === 'function') stopZombieLab();
+    if (typeof stopAim === 'function') stopAim();
 }
 function showScreen(id) {
     if (isUserBanned) return;
