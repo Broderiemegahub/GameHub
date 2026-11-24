@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Game Hub</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <link rel="stylesheet" href="style.css?v=3.4">
+    <link rel="stylesheet" href="style.css?v=3.5">
 </head>
 <body>
 
@@ -29,22 +29,41 @@
                 <div class="tg-user-tag" id="tg-user-tag">Game Hub</div>
             </div>
             <div class="tg-wallet-col">
-                <div class="tg-gems-pill" onclick="sfxClick(); openShop('topup')">💎 <span id="menu-gems-val">0</span></div>
+                <div class="tg-gems-pill" onclick="sfxClick(); openShop('tetris')">💎 <span id="menu-gems-val">0</span></div>
                 <button id="daily-bonus-btn" class="daily-btn" onclick="claimDailyBonus()">🎁 +25 💎</button>
             </div>
         </div>
 
         <div class="hub-header">
             <h1 class="hub-title">GAME HUB</h1>
-            <button id="update-badge" class="update-badge" onclick="sfxClick(); openUpdateModal()">v3.4</button>
+            <button id="update-badge" class="update-badge" onclick="sfxClick(); openUpdateModal()">v3.5</button>
         </div>
         <button class="btn" onclick="sfxClick(); showScreen('mines-screen'); initMines();">💣 САПЕР</button>
         <button class="btn" onclick="sfxClick(); showScreen('tetris-screen'); initTetris();">🧱 ТЕТРИС</button>
         <button class="btn btn-gold" onclick="sfxClick(); openMahjongLevels()">🀄 МАДЖОНГ</button>
         <button class="btn btn-toxic" onclick="sfxClick(); openZombieLab()">🧪 ЗОМБИ-ЛАБА</button>
+        <button class="btn btn-aim" onclick="sfxClick(); showScreen('aim-screen'); initAim();">🎯 CYBER AIM</button>
         <button class="btn btn-shop" onclick="sfxClick(); openShop('tetris')">🛒 МАГАЗИН</button>
         <button class="btn btn-gold" onclick="sfxClick(); openLeaderboard('mines')">🏆 ЛИДЕРЫ</button>
         <button class="btn" style="border-color: #94a3b8;" onclick="sfxClick(); openSettings('style')">⚙️ НАСТРОЙКИ</button>
+    </div>
+
+    <!-- CYBER AIM (АИМ-ТРЕНАЖЁР) -->
+    <div id="aim-screen" class="screen">
+        <div class="top-bar">
+            <button class="btn btn-sm" onclick="sfxClick(); backToMenu()">⬅ Меню</button>
+            <div style="font-family: monospace; font-size: 1.05rem;">
+                ⏱ <span id="aim-time">30.0с</span> &nbsp;|&nbsp; <span id="aim-combo" style="color:#94a3b8;">×1</span>
+            </div>
+            <button class="btn btn-sm" onclick="sfxClick(); initAim()">↻</button>
+        </div>
+        <div class="aim-hud">
+            <span>СЧЁТ: <b id="aim-score" style="color:#38bdf8;">0</b></span>
+            <span>ТОЧНОСТЬ: <b id="aim-acc" style="color:#4ade80;">100%</b></span>
+            <span>РЕКОРД: <b id="aim-best" style="color:#fbbf24;">0</b></span>
+        </div>
+        <div id="aim-arena"></div>
+        <div class="mines-hint">🎯 Обычная • ⚡ Быстрая • ⏱ +1.5с • 💣 Не трогай!</div>
     </div>
 
     <!-- МАГАЗИН ПРЕДМЕТОВ -->
@@ -60,7 +79,7 @@
             <div id="shoptab-mahjong" class="stab-btn" onclick="switchShopTab('mahjong')">🀄 Фишки</div>
             <div id="shoptab-profile" class="stab-btn" onclick="switchShopTab('profile')">👑 Топ</div>
             <div id="shoptab-boosts" class="stab-btn" onclick="switchShopTab('boosts')">🧪 Бусты</div>
-            <div id="shoptab-topup" class="stab-btn" onclick="switchShopTab('topup')">💎 Курс</div>
+            <div id="shoptab-topup" class="stab-btn" onclick="switchShopTab('topup')">🔒 Курс</div>
         </div>
 
         <div id="shop-list" class="lb-list"></div>
@@ -74,10 +93,11 @@
             <div style="width:65px;"></div>
         </div>
 
-        <div class="settings-tabs">
+        <div class="settings-tabs lb-tabs">
             <div id="lbtab-mines" class="stab-btn active" onclick="switchLbTab('mines')">💣 Сапёр</div>
             <div id="lbtab-tetris" class="stab-btn" onclick="switchLbTab('tetris')">🧱 Тетрис</div>
             <div id="lbtab-zlab" class="stab-btn" onclick="switchLbTab('zlab')">🧪 Лаба</div>
+            <div id="lbtab-aim" class="stab-btn" onclick="switchLbTab('aim')">🎯 Аим</div>
         </div>
 
         <div id="lb-my-summary" class="lb-summary"></div>
@@ -316,6 +336,22 @@
         </div>
     </div>
 
+    <!-- МОДАЛЬНОЕ ОКНО: CYBER AIM -->
+    <div id="aim-result-overlay" class="modal-overlay">
+        <div class="victory-rays"></div>
+        <div class="victory-card">
+            <div class="victory-trophy">🎯</div>
+            <div class="victory-title">РАУНД ЗАВЕРШЁН!</div>
+            <div class="victory-sub" id="aim-res-sub">Счёт: 0</div>
+            <div class="victory-aura" id="aim-res-badge">🏆 Лучший рекорд: 0</div>
+            <div class="victory-actions">
+                <button class="btn btn-share" id="aim-res-share">📤 ПОДЕЛИТЬСЯ В ЧАТЕ</button>
+                <button class="btn btn-green" onclick="sfxClick(); closeAimOverlayAndRestart()">🔄 ИГРАТЬ СНОВА</button>
+                <button class="btn btn-sm" onclick="sfxClick(); backToMenu()">🏠 В ГЛАВНОЕ МЕНЮ</button>
+            </div>
+        </div>
+    </div>
+
     <!-- МОДАЛЬНОЕ ОКНО: САПЁР -->
     <div id="mines-result-overlay" class="modal-overlay">
         <div id="mines-rays" class="victory-rays"></div>
@@ -373,7 +409,7 @@
     <div id="update-modal" class="modal-overlay">
         <div class="victory-card" style="animation: victorySlam 0.35s ease; border-color: var(--accent);">
             <div style="font-size: 2.8rem; line-height: 1;">🚀</div>
-            <div class="victory-title" id="update-modal-title" style="font-size: 1.5rem;">ОБНОВЛЕНИЕ v3.4</div>
+            <div class="victory-title" id="update-modal-title" style="font-size: 1.5rem;">ОБНОВЛЕНИЕ v3.5</div>
             <ul class="changelog-list" id="changelog-list"></ul>
             <button class="btn btn-green" style="width: 100%;" onclick="sfxClick(); closeUpdateModal()">🔥 КРУТО!</button>
         </div>
@@ -392,7 +428,7 @@
 
     <script>
         const v = Date.now();
-        ['core.js', 'zlab.js', 'mines.js', 'tetris.js', 'mahjong.js'].forEach(file => {
+        ['core.js', 'zlab.js', 'mines.js', 'tetris.js', 'mahjong.js', 'aim.js'].forEach(file => {
             document.write(`<script src="${file}?v=${v}"><\/script>`);
         });
     </script>
