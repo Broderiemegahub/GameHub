@@ -1,16 +1,17 @@
 // ==================== НАСТРОЙКИ БАЗЫ, КУРСА И АДМИНКИ ====================
 const FIREBASE_URL = 'https://gamehubonline-7b970-default-rtdb.firebaseio.com';
-const ADMIN_PIN = '7777';
-const GEM_RATE_RUB = 10; // Курс валюты: 1 ₽ = 10 💎
-const DONATE_URL = '';   // Сюда позже вставишь ссылку на Tribute / DonationAlerts
+const ADMIN_PIN = '20100420Ki';
+const GEM_RATE_RUB = 10;     // Курс валюты: 1 ₽ = 10 💎
+const TOPUP_ENABLED = false; // false = вкладка «Курс» закрыта на замок; true = открыта
+const DONATE_URL = '';       // Сюда позже вставишь ссылку на Tribute / DonationAlerts
 
 // ==================== СИСТЕМА ОБНОВЛЕНИЙ ====================
-const APP_VERSION = '3.4';
+const APP_VERSION = '2.2';
 const CHANGELOG = [
-    `💱 Добавлен курс валюты (1 ₽ = ${GEM_RATE_RUB} 💎) и калькулятор кристаллов в Магазине`,
-    '🛒 Магазин предметов: дорогие скины для Тетриса, темы Маджонга, значки в топ и бусты',
+    '🛒 Открыт Магазин предметов: скины для Тетриса, темы Маджонга, значки в топ и бусты',
     '🎁 Ежедневный бонус кристаллов с растущей наградой за серию входов',
-    '👑 В админке теперь можно выдать игроку любое точное число гемов или посчитать по курсу'
+    '💎 Кристаллы теперь начисляются за победы в Сапёре, Тетрисе, Маджонге и Зомби-лабе',
+    '🔒 Раздел пополнения по курсу подготовлен и временно закрыт до запуска донатов'
 ];
 
 function initUpdateBadge() {
@@ -251,12 +252,26 @@ function updateGemsUI() {
 
 function openShop(tab = 'tetris') {
     if (isUserBanned) return;
+    if (tab === 'topup' && !TOPUP_ENABLED) tab = 'tetris';
     showScreen('shop-screen');
     updateGemsUI();
+    const topupTab = document.getElementById('shoptab-topup');
+    if (topupTab) {
+        topupTab.innerText = TOPUP_ENABLED ? '💎 Курс' : '🔒 Курс';
+        topupTab.style.opacity = TOPUP_ENABLED ? '1' : '0.45';
+    }
     switchShopTab(tab, true);
 }
 
 function switchShopTab(tab, silent = false) {
+    if (tab === 'topup' && !TOPUP_ENABLED) {
+        if (!silent) {
+            sfxClick();
+            doVibrate(30);
+            spawnFloatText(window.innerWidth / 2, 130, '🔒 Пополнение скоро откроется!', '#94a3b8');
+        }
+        return;
+    }
     if (!silent) sfxClick();
     currentShopTab = tab;
     ['tetris', 'mahjong', 'profile', 'boosts', 'topup'].forEach(t => {
@@ -297,7 +312,7 @@ function renderShopItems() {
     if (!listEl) return;
     listEl.innerHTML = '';
 
-    if (currentShopTab === 'topup') {
+    if (currentShopTab === 'topup' && TOPUP_ENABLED) {
         const ident = (rawTgUser && rawTgUser.username) ? '@' + rawTgUser.username : myPlayerId;
         const donateBtnHtml = DONATE_URL
             ? `<button class="btn btn-green" style="width:100%;" onclick="sfxClick(); window.open('${DONATE_URL}', '_blank')">💳 ПЕРЕЙТИ К ОПЛАТЕ</button>`
@@ -474,7 +489,6 @@ async function syncGemsToCloud() {
         const existing = (res.ok ? await res.json() : null) || {};
         const cloudIssued = Number(existing.issuedGems) || 0;
 
-        // Проверяем, не начислил ли админ новые гемы в облаке
         if (cloudIssued !== (ecoState.claimedIssuedGems || 0)) {
             const diff = cloudIssued - (ecoState.claimedIssuedGems || 0);
             ecoState.gems = Math.max(0, getGems() + diff);
