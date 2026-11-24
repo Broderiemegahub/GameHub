@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Game Hub</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <link rel="stylesheet" href="style.css?v=2.8">
+    <link rel="stylesheet" href="style.css?v=3.3">
 </head>
 <body>
 
@@ -28,19 +28,41 @@
                 <div class="tg-user-name" id="tg-user-name">Игрок</div>
                 <div class="tg-user-tag" id="tg-user-tag">Game Hub</div>
             </div>
-            <div class="tg-online-dot" title="Online"></div>
+            <div class="tg-wallet-col">
+                <div class="tg-gems-pill" onclick="sfxClick(); openShop('tetris')">💎 <span id="menu-gems-val">0</span></div>
+                <button id="daily-bonus-btn" class="daily-btn" onclick="claimDailyBonus()">🎁 +50 💎</button>
+            </div>
         </div>
 
         <div class="hub-header">
             <h1 class="hub-title">GAME HUB</h1>
-            <button id="update-badge" class="update-badge" onclick="sfxClick(); openUpdateModal()">v2.1</button>
+            <button id="update-badge" class="update-badge" onclick="sfxClick(); openUpdateModal()">v3.3</button>
         </div>
         <button class="btn" onclick="sfxClick(); showScreen('mines-screen'); initMines();">💣 САПЕР</button>
         <button class="btn" onclick="sfxClick(); showScreen('tetris-screen'); initTetris();">🧱 ТЕТРИС</button>
         <button class="btn btn-gold" onclick="sfxClick(); openMahjongLevels()">🀄 МАДЖОНГ</button>
         <button class="btn btn-toxic" onclick="sfxClick(); openZombieLab()">🧪 ЗОМБИ-ЛАБА</button>
+        <button class="btn btn-shop" onclick="sfxClick(); openShop('tetris')">🛒 МАГАЗИН</button>
         <button class="btn btn-gold" onclick="sfxClick(); openLeaderboard('mines')">🏆 ЛИДЕРЫ</button>
         <button class="btn" style="border-color: #94a3b8;" onclick="sfxClick(); openSettings('style')">⚙️ НАСТРОЙКИ</button>
+    </div>
+
+    <!-- МАГАЗИН ПРЕДМЕТОВ -->
+    <div id="shop-screen" class="screen">
+        <div class="top-bar">
+            <button class="btn btn-sm" onclick="sfxClick(); backToMenu()">⬅ Меню</button>
+            <h3 style="margin:0; color:#e879f9;">🛒 МАГАЗИН</h3>
+            <div class="tg-gems-pill">💎 <span id="shop-gems-val">0</span></div>
+        </div>
+
+        <div class="settings-tabs shop-tabs">
+            <div id="shoptab-tetris" class="stab-btn active" onclick="switchShopTab('tetris')">🧱 Тетрис</div>
+            <div id="shoptab-mahjong" class="stab-btn" onclick="switchShopTab('mahjong')">🀄 Фишки</div>
+            <div id="shoptab-profile" class="stab-btn" onclick="switchShopTab('profile')">👑 Топ</div>
+            <div id="shoptab-boosts" class="stab-btn" onclick="switchShopTab('boosts')">🧪 Бусты</div>
+        </div>
+
+        <div id="shop-list" class="lb-list"></div>
     </div>
 
     <!-- ТАБЛИЦА ЛИДЕРОВ -->
@@ -179,7 +201,6 @@
         </div>
 
         <button class="btn" style="width: 310px; margin-top: 4px; margin-bottom: 10px;" onclick="sfxClick(); backToMenu()">ГОТОВО</button>
-        <!-- ПРОЗРАЧНАЯ КНОПКА ВХОДА В АДМИНКУ -->
         <button class="btn btn-sm" style="width: 310px; height: 44px; opacity: 0 !important; border: none; background: transparent; box-shadow: none; margin-bottom: 24px;" onclick="openAdminPanel()" aria-label="Admin"></button>
     </div>
 
@@ -200,6 +221,7 @@
                 <span>⚡ +<span id="zlab-sec">0</span>/сек</span>
             </div>
             <div class="zlab-stage-badge" id="zlab-stage">Стадия 1: Вирус</div>
+            <div id="zlab-boost-pill" class="zlab-boost-pill" style="display:none;">⚡ БУСТ ×2: 15:00</div>
         </div>
         <div id="zlab-event-banner">
             <div class="event-title" id="zlab-event-title">⚠️ СОБЫТИЕ!</div>
@@ -227,7 +249,7 @@
         <div class="mines-hint">Удерживай клетку, чтобы поставить 🚩</div>
     </div>
 
-        <!-- ТЕТРИС -->
+    <!-- ТЕТРИС -->
     <div id="tetris-screen" class="screen">
         <div class="top-bar">
             <button class="btn btn-sm" onclick="sfxClick(); backToMenu()">⬅ Меню</button>
@@ -257,7 +279,6 @@
             <button class="control-btn" onclick="moveRightT()">→</button>
         </div>
     </div>
-
 
     <!-- МАДЖОНГ -->
     <div id="mahjong-levels-screen" class="screen">
@@ -351,7 +372,7 @@
     <div id="update-modal" class="modal-overlay">
         <div class="victory-card" style="animation: victorySlam 0.35s ease; border-color: var(--accent);">
             <div style="font-size: 2.8rem; line-height: 1;">🚀</div>
-            <div class="victory-title" id="update-modal-title" style="font-size: 1.5rem;">ОБНОВЛЕНИЕ v2.8</div>
+            <div class="victory-title" id="update-modal-title" style="font-size: 1.5rem;">ОБНОВЛЕНИЕ v3.3</div>
             <ul class="changelog-list" id="changelog-list"></ul>
             <button class="btn btn-green" style="width: 100%;" onclick="sfxClick(); closeUpdateModal()">🔥 КРУТО!</button>
         </div>
@@ -368,10 +389,11 @@
         </div>
     </div>
 
-    <script src="core.js?v=2.1"></script>
-    <script src="zlab.js?v=2.1"></script>
-    <script src="mines.js?v=2.1"></script>
-    <script src="tetris.js?v=2.1"></script>
-    <script src="mahjong.js?v=2.1"></script>
+    <script>
+        const v = Date.now();
+        ['core.js', 'zlab.js', 'mines.js', 'tetris.js', 'mahjong.js'].forEach(file => {
+            document.write(`<script src="${file}?v=${v}"><\/script>`);
+        });
+    </script>
 </body>
 </html>
