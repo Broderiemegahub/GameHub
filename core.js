@@ -994,6 +994,50 @@ async function renderAdminList() {
     }
 }
 
+async function sendGemNotification(playerId, amount, newBalance) {
+    if (!playerId.startsWith('tg_')) return;
+
+    let token = '';
+    try { token = localStorage.getItem('gameHubBotToken') || ''; } catch {}
+    if (!token) {
+        const entered = prompt(
+            'Вставь токен бота от @BotFather для отправки уведомлений\n' +
+            '(он сохранится только на твоём телефоне и не попадёт на GitHub):'
+        );
+        if (!entered) return;
+        token = entered.trim();
+        try { localStorage.setItem('gameHubBotToken', token); } catch {}
+    }
+
+    const chatId = playerId.slice(3);
+    const text = amount > 0
+        ? `💎 <b>Пополнение баланса!</b>\n\nЗачислено: <b>+${amount} 💎</b>\nТекущий баланс: <b>${newBalance} 💎</b>`
+        : `💎 <b>Изменение баланса</b>\n\nСписано: <b>${amount} 💎</b>\nТекущий баланс: <b>${newBalance} 💎</b>`;
+
+    try {
+        const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                chat_id: chatId,
+                text: text,
+                parse_mode: 'HTML'
+            })
+        });
+        const data = await res.json();
+        if (!data.ok) {
+            if (data.error_code === 401) {
+                try { localStorage.removeItem('gameHubBotToken'); } catch {}
+                alert('Неверный токен бота! При следующем пополнении введи правильный.');
+            } else {
+                alert('Гемы начислены, но бот не смог написать игроку (возможно, он не нажимал /start в боте).');
+            }
+        }
+    } catch {
+        alert('Гемы начислены, но нет связи с Telegram API (проверь интернет/VPN).');
+    }
+}
+
 async function adminGiveGemsPrompt(playerId, name) {
     const raw = prompt(
         `Сколько выдать игроку ${name}?\n` +
@@ -1028,6 +1072,7 @@ async function adminGiveGemsPrompt(playerId, name) {
     sfxClick();
     if (playerId === myPlayerId) {
         addGems(amount, amount > 0 ? 'Админ-выдача' : 'Списание');
+        await sendGemNotification(playerId, amount, getGems());
         renderAdminList();
         return;
     }
@@ -1050,11 +1095,13 @@ async function adminGiveGemsPrompt(playerId, name) {
             })
         });
         sfxVictory();
+        await sendGemNotification(playerId, amount, nextGems);
         renderAdminList();
     } catch {
         alert('Ошибка связи с базой!');
     }
 }
+
 
 async function adminResetPlayer(playerId, name) {
     if (!confirm(`Обнулить все рекорды игрока ${name}?`)) return;
