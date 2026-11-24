@@ -5,10 +5,10 @@ const ADMIN_PIN = '20100420Ki';
 // ==================== СИСТЕМА ОБНОВЛЕНИЙ ====================
 const APP_VERSION = '2.2';
 const CHANGELOG = [
-    '✅ Исправлен запуск скриптов и возвращена синхронизация профиля Telegram',
-    '🔓 Разбаненные игроки сразу получают доступ ко всем кнопкам',
-    '📋 Все игроки сохраняются в базе админ-панели',
-    '🛡️ Защита от автокликеров и подбора админ-кода'
+    '🛒 Открыт Магазин предметов: скины для Тетриса, темы Маджонга, значки в топ и бусты!',
+    '🎁 Добавлен Ежедневный бонус гемов с растущей наградой за серию входов',
+    '💎 Кристаллы теперь начисляются за победы в Сапёре, Тетрисе, Маджонге и Зомби-лабе',
+    '👑 Купленные значки и золотая подсветка отображаются прямо в таблице лидеров'
 ];
 
 function initUpdateBadge() {
@@ -54,13 +54,327 @@ const tgUser = {
     photo: (rawTgUser && rawTgUser.photo_url) ? rawTgUser.photo_url : ''
 };
 
+function shareGameScore(text) {
+    const appUrl = 'https://broderiemegahub.github.io/GameHub/';
+    const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(appUrl)}&text=${encodeURIComponent(text)}`;
+    if (tgWebApp && tgWebApp.openTelegramLink) {
+        tgWebApp.openTelegramLink(shareUrl);
+    } else {
+        window.open(shareUrl, '_blank');
+    }
+}
+
+// ==================== ЭКОНОМИКА, ЕЖЕДНЕВНЫЙ БОНУС И МАГАЗИН ====================
+const SHOP_CATALOG = [
+    // Тетрис скины
+    { id: 'tskin_default', cat: 'tetris', icon: '🟦', name: 'Классический неон', desc: 'Стандартная палитра блоков', price: 0, type: 'tetris_skin' },
+    { id: 'tskin_gold',    cat: 'tetris', icon: '🟨', name: 'Золотые слитки',    desc: 'Роскошные золотые блоки с бликом', price: 80, type: 'tetris_skin' },
+    { id: 'tskin_matrix',  cat: 'tetris', icon: '🟩', name: 'Код Матрицы',       desc: 'Кислотно-зелёный хакерский стиль', price: 120, type: 'tetris_skin' },
+    { id: 'tskin_cyber',   cat: 'tetris', icon: '🟪', name: 'Киберпанк 2077',    desc: 'Неоново-розовые и бирюзовые блоки', price: 160, type: 'tetris_skin' },
+    { id: 'tskin_ice',     cat: 'tetris', icon: '❄️', name: 'Крио-лёд',          desc: 'Ледяные кристаллы с морозным оттенком', price: 200, type: 'tetris_skin' },
+
+    // Темы Маджонга
+    { id: 'mj_default', cat: 'mahjong', icon: '🀄', name: 'Классика',             desc: 'Светлые традиционные кости', price: 0, type: 'mj_theme' },
+    { id: 'mj_carbon',  cat: 'mahjong', icon: '⬛', name: 'Тёмный карбон',        desc: 'Строгие графитовые фишки с неоном', price: 90, type: 'mj_theme' },
+    { id: 'mj_jade',    cat: 'mahjong', icon: '🟢', name: 'Императорский нефрит', desc: 'Изумрудные фишки с золотым кантом', price: 140, type: 'mj_theme' },
+    { id: 'mj_royal',   cat: 'mahjong', icon: '🟥', name: 'Королевский рубин',    desc: 'Бордово-золотой премиум стиль', price: 190, type: 'mj_theme' },
+
+    // Значки и подсветка в топе
+    { id: 'badge_none',   cat: 'profile', icon: '👤', name: 'Без значка',      desc: 'Обычное отображение имени', price: 0, type: 'badge', badgeText: '' },
+    { id: 'badge_fire',   cat: 'profile', icon: '🔥', name: 'Значок Огонёк',   desc: 'Добавляет 🔥 рядом с ником в топе', price: 60, type: 'badge', badgeText: '🔥' },
+    { id: 'badge_crown',  cat: 'profile', icon: '👑', name: 'Значок Корона',   desc: 'Королевский статус 👑 в рейтинге', price: 150, type: 'badge', badgeText: '👑' },
+    { id: 'badge_vip',    cat: 'profile', icon: '💎', name: 'Тег [VIP]',       desc: 'Эксклюзивный тег [VIP] у твоего имени', price: 250, type: 'badge', badgeText: 'VIP' },
+    { id: 'badge_dragon', cat: 'profile', icon: '🐉', name: 'Значок Легенда',  desc: 'Редкий значок 🐉 для топ-игроков', price: 400, type: 'badge', badgeText: '🐉' },
+    { id: 'glow_default', cat: 'profile', icon: '▫️', name: 'Обычная рамка',   desc: 'Стандартная карточка в топе', price: 0, type: 'lb_glow' },
+    { id: 'glow_gold',    cat: 'profile', icon: '🌟', name: 'Золотая аура',    desc: 'Твоя строчка в топе светится золотом', price: 180, type: 'lb_glow' },
+    { id: 'glow_rainbow', cat: 'profile', icon: '🌈', name: 'Неоновый градиент',desc: 'Яркая переливающаяся рамка в топе', price: 320, type: 'lb_glow' },
+
+    // Бусты Зомби-лабы
+    { id: 'boost_zx2',     cat: 'boosts', icon: '⚡', name: 'Мутаген ×2 (15 мин)', desc: 'Удваивает клик и автодоход в Лабе', price: 45, type: 'consumable' },
+    { id: 'z_autoflask',   cat: 'boosts', icon: '🤖', name: 'Дрон-сборщик колб',   desc: 'Навсегда: сам ловит Золотые колбы', price: 220, type: 'permanent' },
+    { id: 'z_gem_drill',   cat: 'boosts', icon: '⛏️', name: 'Кристальный бур',     desc: 'Навсегда: +5 💎 вместо +2 💎 за колбу', price: 300, type: 'permanent' }
+];
+
+let ecoState = loadEcoState();
+let currentShopTab = 'tetris';
+
+function loadEcoState() {
+    const def = {
+        gems: 0,
+        owned: ['tskin_default', 'mj_default', 'badge_none', 'glow_default'],
+        equipped: {
+            tetris_skin: 'tskin_default',
+            mj_theme: 'mj_default',
+            badge: 'badge_none',
+            lb_glow: 'glow_default'
+        },
+        dailyLastDay: '',
+        dailyStreak: 0,
+        zBoostUntil: 0
+    };
+    try {
+        const raw = localStorage.getItem('gameHubEconomy');
+        if (raw) {
+            const parsed = JSON.parse(raw);
+            return {
+                ...def,
+                ...parsed,
+                owned: Array.isArray(parsed.owned) ? Array.from(new Set([...def.owned, ...parsed.owned])) : def.owned,
+                equipped: { ...def.equipped, ...(parsed.equipped || {}) }
+            };
+        }
+    } catch {}
+    return def;
+}
+
+function saveEcoState() {
+    try { localStorage.setItem('gameHubEconomy', JSON.stringify(ecoState)); } catch {}
+    updateGemsUI();
+    applyMahjongTheme();
+}
+
+function getGems() {
+    return Math.floor(Math.max(0, ecoState.gems || 0));
+}
+
+function addGems(amount, reason = '') {
+    const add = Math.floor(amount);
+    if (add <= 0) return;
+    ecoState.gems = getGems() + add;
+    saveEcoState();
+    syncGemsToCloud();
+    if (reason) {
+        spawnFloatText(window.innerWidth / 2, window.innerHeight / 2 - 40, `+${add} 💎 (${reason})`, '#e879f9');
+    }
+}
+
+function hasShopItem(id) {
+    return ecoState.owned.includes(id);
+}
+
+function getZLabBoostRemaining() {
+    return Math.max(0, (ecoState.zBoostUntil || 0) - Date.now());
+}
+
+function getTetrisColors() {
+    const skin = ecoState.equipped.tetris_skin || 'tskin_default';
+    if (skin === 'tskin_gold')   return [null, '#fde047', '#facc15', '#eab308', '#fbbf24', '#f59e0b', '#fef08a', '#d97706'];
+    if (skin === 'tskin_matrix') return [null, '#4ade80', '#22c55e', '#16a34a', '#86efac', '#15803d', '#bbf7d0', '#10b981'];
+    if (skin === 'tskin_cyber')  return [null, '#f472b6', '#e879f9', '#38bdf8', '#c084fc', '#fb7185', '#22d3ee', '#a855f7'];
+    if (skin === 'tskin_ice')    return [null, '#e0f2fe', '#bae6fd', '#7dd3fc', '#38bdf8', '#a5f3fc', '#cffafe', '#0284c7'];
+    return [null, '#38bdf8', '#fbbf24', '#a855f7', '#4ade80', '#ef4444', '#3b82f6', '#f97316'];
+}
+
+function getEquippedBadgeText() {
+    const id = ecoState.equipped.badge || 'badge_none';
+    const item = SHOP_CATALOG.find(x => x.id === id);
+    return item ? (item.badgeText || '') : '';
+}
+
+function getEquippedLbStyle() {
+    const id = ecoState.equipped.lb_glow || 'glow_default';
+    if (id === 'glow_gold') return 'gold';
+    if (id === 'glow_rainbow') return 'rainbow';
+    return '';
+}
+
+function applyMahjongTheme() {
+    const theme = ecoState.equipped.mj_theme || 'mj_default';
+    document.body.classList.remove('mj-theme-carbon', 'mj-theme-jade', 'mj-theme-royal');
+    if (theme === 'mj_carbon') document.body.classList.add('mj-theme-carbon');
+    else if (theme === 'mj_jade') document.body.classList.add('mj-theme-jade');
+    else if (theme === 'mj_royal') document.body.classList.add('mj-theme-royal');
+}
+applyMahjongTheme();
+
+function getTodayKey() {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function getDailyRewardAmount() {
+    const streak = (ecoState.dailyStreak || 0) + 1;
+    return Math.min(150, 50 + (streak - 1) * 25);
+}
+
+function updateDailyBonusUI() {
+    const btn = document.getElementById('daily-bonus-btn');
+    if (!btn) return;
+    const today = getTodayKey();
+    if (ecoState.dailyLastDay === today) {
+        btn.innerText = '✅ Бонус взят';
+        btn.classList.add('claimed');
+    } else {
+        btn.innerText = `🎁 +${getDailyRewardAmount()} 💎`;
+        btn.classList.remove('claimed');
+    }
+}
+
+function claimDailyBonus() {
+    const today = getTodayKey();
+    if (ecoState.dailyLastDay === today) {
+        sfxClick();
+        spawnFloatText(window.innerWidth / 2, 110, '⏳ Возвращайся завтра за новым бонусом!', '#94a3b8');
+        return;
+    }
+
+    const yesterday = new Date(Date.now() - 86400000);
+    const yKey = `${yesterday.getFullYear()}-${String(yesterday.getMonth() + 1).padStart(2, '0')}-${String(yesterday.getDate()).padStart(2, '0')}`;
+    ecoState.dailyStreak = (ecoState.dailyLastDay === yKey) ? (ecoState.dailyStreak || 0) + 1 : 1;
+    ecoState.dailyLastDay = today;
+
+    const reward = Math.min(150, 50 + (ecoState.dailyStreak - 1) * 25);
+    ecoState.gems = getGems() + reward;
+    saveEcoState();
+    syncGemsToCloud();
+    updateDailyBonusUI();
+
+    sfxVictory();
+    doVibrate([50, 30, 90]);
+    spawnConfettiCannon(true);
+    spawnConfettiCannon(false);
+    spawnFloatText(window.innerWidth / 2, 130, `🎁 ДЕНЬ ${ecoState.dailyStreak}: +${reward} 💎!`, '#fbbf24');
+}
+
+function updateGemsUI() {
+    const val = getGems();
+    const mEl = document.getElementById('menu-gems-val');
+    const sEl = document.getElementById('shop-gems-val');
+    if (mEl) mEl.innerText = val;
+    if (sEl) sEl.innerText = val;
+    updateDailyBonusUI();
+}
+
+function openShop(tab = 'tetris') {
+    if (isUserBanned) return;
+    showScreen('shop-screen');
+    updateGemsUI();
+    switchShopTab(tab, true);
+}
+
+function switchShopTab(tab, silent = false) {
+    if (!silent) sfxClick();
+    currentShopTab = tab;
+    ['tetris', 'mahjong', 'profile', 'boosts'].forEach(t => {
+        const el = document.getElementById('shoptab-' + t);
+        if (el) el.classList.toggle('active', t === tab);
+    });
+    renderShopItems();
+}
+
+function renderShopItems() {
+    const listEl = document.getElementById('shop-list');
+    if (!listEl) return;
+    listEl.innerHTML = '';
+
+    const items = SHOP_CATALOG.filter(x => x.cat === currentShopTab);
+    const gems = getGems();
+
+    items.forEach(item => {
+        const isOwned = ecoState.owned.includes(item.id);
+        const isEquippable = ['tetris_skin', 'mj_theme', 'badge', 'lb_glow'].includes(item.type);
+        const isEquipped = isEquippable && ecoState.equipped[item.type] === item.id;
+
+        const card = document.createElement('div');
+        card.className = 'shop-card' + (isEquipped ? ' equipped' : isOwned ? ' owned' : '');
+
+        let btnText = `💎 ${item.price}`;
+        let btnClass = 'shop-buy-btn';
+
+        if (item.type === 'consumable') {
+            if (gems < item.price) btnClass += ' cant-afford';
+            if (item.id === 'boost_zx2' && getZLabBoostRemaining() > 0) {
+                const minsLeft = Math.ceil(getZLabBoostRemaining() / 60000);
+                btnText = `⚡ +15м (${minsLeft}м)`;
+            }
+        } else if (isEquipped) {
+            btnText = '✅ Надето';
+            btnClass += ' is-equipped';
+        } else if (isOwned) {
+            btnText = item.type === 'permanent' ? '✅ Куплено' : 'Надеть';
+            btnClass += ' can-equip';
+        } else if (gems < item.price) {
+            btnClass += ' cant-afford';
+        }
+
+        card.innerHTML = `
+            <div class="shop-item-left">
+                <div class="shop-item-icon">${item.icon}</div>
+                <div style="min-width:0;">
+                    <div class="shop-item-title">${item.name}</div>
+                    <div class="shop-item-desc">${item.desc}</div>
+                </div>
+            </div>
+            <button class="${btnClass}" onclick="buyOrEquipShopItem('${item.id}')">${btnText}</button>
+        `;
+        listEl.appendChild(card);
+    });
+}
+
+function buyOrEquipShopItem(id) {
+    const item = SHOP_CATALOG.find(x => x.id === id);
+    if (!item) return;
+
+    const isOwned = ecoState.owned.includes(item.id);
+    const isEquippable = ['tetris_skin', 'mj_theme', 'badge', 'lb_glow'].includes(item.type);
+
+    // Если уже куплено — просто надеваем
+    if (isOwned && item.type !== 'consumable') {
+        if (isEquippable) {
+            ecoState.equipped[item.type] = item.id;
+            saveEcoState();
+            sfxPop();
+            doVibrate(20);
+            renderShopItems();
+            if (item.type === 'badge' || item.type === 'lb_glow') {
+                syncExistingRecords();
+            }
+        }
+        return;
+    }
+
+    // Покупка
+    if (getGems() < item.price) {
+        sfxAlarm();
+        doVibrate(120);
+        spawnFloatText(window.innerWidth / 2, window.innerHeight / 2, '💎 Не хватает кристаллов!', '#ef4444');
+        return;
+    }
+
+    ecoState.gems = getGems() - item.price;
+
+    if (item.type === 'consumable') {
+        if (item.id === 'boost_zx2') {
+            const base = Math.max(Date.now(), ecoState.zBoostUntil || 0);
+            ecoState.zBoostUntil = base + 15 * 60 * 1000;
+        }
+    } else {
+        ecoState.owned.push(item.id);
+        if (isEquippable) {
+            ecoState.equipped[item.type] = item.id;
+        }
+    }
+
+    saveEcoState();
+    syncGemsToCloud();
+    if (item.type === 'badge' || item.type === 'lb_glow') {
+        syncExistingRecords();
+    }
+
+    sfxVictory();
+    doVibrate([40, 30, 80]);
+    spawnBurst(window.innerWidth / 2, window.innerHeight / 2, 30, ['#e879f9', '#fbbf24', '#4ade80']);
+    renderShopItems();
+}
+
 function initTgProfile() {
     const nameEl = document.getElementById('tg-user-name');
     const tagEl = document.getElementById('tg-user-tag');
     const avatarEl = document.getElementById('tg-avatar');
     if (!nameEl || !avatarEl) return;
 
-    nameEl.innerText = tgUser.name;
+    const badge = getEquippedBadgeText();
+    nameEl.innerHTML = badge ? `${tgUser.name} <span class="lb-badge-tag">${badge}</span>` : tgUser.name;
     tagEl.innerText = tgUser.username;
 
     const initial = (tgUser.name.trim()[0] || '👤').toUpperCase();
@@ -73,18 +387,9 @@ function initTgProfile() {
     } else {
         avatarEl.innerText = initial;
     }
+    updateGemsUI();
 }
 initTgProfile();
-
-function shareGameScore(text) {
-    const appUrl = 'https://broderiemegahub.github.io/GameHub/';
-    const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(appUrl)}&text=${encodeURIComponent(text)}`;
-    if (tgWebApp && tgWebApp.openTelegramLink) {
-        tgWebApp.openTelegramLink(shareUrl);
-    } else {
-        window.open(shareUrl, '_blank');
-    }
-}
 
 // ==================== РЕГИСТРАЦИЯ ИГРОКА И СИСТЕМА БАНА ====================
 function getPlayerId() {
@@ -102,16 +407,23 @@ const myPlayerId = getPlayerId();
 let isUserBanned = false;
 let isBanSyncing = false;
 
-function registerPlayerInCloud() {
+function syncGemsToCloud() {
     const baseUrl = FIREBASE_URL.replace(/\/+$/, '');
     if (!baseUrl.startsWith('http')) return;
     fetch(`${baseUrl}/players/${myPlayerId}.json`, {
-        method: 'PATCH',
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: tgUser.name, tag: tgUser.username, lastSeen: Date.now() })
+        body: JSON.stringify({
+            name: tgUser.name,
+            tag: tgUser.username,
+            gems: getGems(),
+            badge: getEquippedBadgeText(),
+            lbStyle: getEquippedLbStyle(),
+            lastSeen: Date.now()
+        })
     }).catch(() => {});
 }
-registerPlayerInCloud();
+syncGemsToCloud();
 
 function getLocalBan() {
     try {
@@ -140,6 +452,17 @@ function triggerLocalBanScreen(reason) {
 
     const overlay = document.getElementById('ban-overlay');
     if (overlay) {
+        const card = overlay.querySelector('.victory-card');
+        if (card && !document.getElementById('ban-retry-btn')) {
+            const btn = document.createElement('button');
+            btn.id = 'ban-retry-btn';
+            btn.className = 'btn btn-sm';
+            btn.style.marginTop = '12px';
+            btn.style.width = '100%';
+            btn.innerText = '🔄 Проверить статус';
+            btn.onclick = () => checkBanStatus(true);
+            card.appendChild(btn);
+        }
         overlay.style.zIndex = '99999';
         overlay.style.display = 'flex';
         overlay.classList.add('active');
@@ -162,6 +485,7 @@ function clearLocalBanScreen() {
         document.querySelectorAll('.screen').forEach(s => s.style.display = 'none');
         const menu = document.getElementById('main-menu');
         if (menu) menu.style.display = 'flex';
+        syncGemsToCloud();
         syncExistingRecords();
     }
 }
@@ -181,11 +505,6 @@ async function banCurrentPlayer(reason) {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ banned: true, name: tgUser.name, tag: tgUser.username, reason: reason, date: Date.now() })
             }),
-            fetch(`${baseUrl}/players/${myPlayerId}.json`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name: tgUser.name, tag: tgUser.username, lastSeen: Date.now() })
-            }),
             fetch(`${baseUrl}/leaderboard/mines/${myPlayerId}.json`, { method: 'DELETE' }),
             fetch(`${baseUrl}/leaderboard/tetris/${myPlayerId}.json`, { method: 'DELETE' }),
             fetch(`${baseUrl}/leaderboard/zlab/${myPlayerId}.json`, { method: 'DELETE' })
@@ -199,30 +518,71 @@ if (initialLocalBan && initialLocalBan.banned) {
     triggerLocalBanScreen(initialLocalBan.reason || 'Использование читов / автокликера');
 }
 
-async function checkBanStatus() {
+async function checkBanStatus(manual = false) {
     if (isBanSyncing) return;
     const baseUrl = FIREBASE_URL.replace(/\/+$/, '');
     if (!baseUrl.startsWith('http')) return;
 
+    const btn = document.getElementById('ban-retry-btn');
+    if (manual && btn) btn.innerText = '⏳ Проверяем базу...';
+
     try {
         const res = await fetch(`${baseUrl}/banned/${myPlayerId}.json?t=${Date.now()}`, { cache: 'no-store' });
-        if (!res.ok) return;
+        if (!res.ok) throw new Error('HTTP ' + res.status);
         const banInfo = await res.json();
 
         if (banInfo && banInfo.banned) {
             const reason = banInfo.reason || 'Использование читов / автокликера';
             setLocalBan({ banned: true, reason: reason });
             triggerLocalBanScreen(reason);
+            if (manual && btn) btn.innerText = '⛔ Бан подтверждён';
         } else {
             clearLocalBanScreen();
         }
-    } catch {}
+    } catch {
+        if (manual && btn) btn.innerText = '⚠️ Нет связи с базой (включи VPN)';
+    }
 }
 checkBanStatus();
 setInterval(checkBanStatus, 10000);
 document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') checkBanStatus();
 });
+
+// ==================== НАГРАДЫ ЗА ПОБЕДЫ В САПЁРЕ И МАДЖОНГЕ ====================
+function setupVictoryObservers() {
+    const minesOverlay = document.getElementById('mines-result-overlay');
+    if (minesOverlay) {
+        new MutationObserver(() => {
+            if (minesOverlay.classList.contains('active')) {
+                const titleEl = document.getElementById('mines-res-title');
+                const badgeEl = document.getElementById('mines-res-badge');
+                if (titleEl && titleEl.innerText.includes('ПОБЕДА')) {
+                    const diff = document.getElementById('mines-difficulty')?.value || '8-10';
+                    const reward = diff === '12-25' ? 35 : diff === '10-16' ? 20 : 10;
+                    addGems(reward);
+                    if (badgeEl && !badgeEl.innerText.includes('💎')) {
+                        badgeEl.innerText += ` • +${reward} 💎`;
+                    }
+                }
+            }
+        }).observe(minesOverlay, { attributes: true, attributeFilter: ['class'] });
+    }
+
+    const mjOverlay = document.getElementById('mj-victory-overlay');
+    if (mjOverlay) {
+        new MutationObserver(() => {
+            if (mjOverlay.classList.contains('active')) {
+                const auraEl = document.getElementById('victory-aura');
+                addGems(15);
+                if (auraEl && !auraEl.innerText.includes('💎')) {
+                    auraEl.innerText += ' • +15 💎';
+                }
+            }
+        }).observe(mjOverlay, { attributes: true, attributeFilter: ['class'] });
+    }
+}
+setupVictoryObservers();
 
 // ==================== РЕКОРДЫ И ОБЛАЧНАЯ ТАБЛИЦА ЛИДЕРОВ ====================
 let hubRecords = loadHubRecords();
@@ -253,12 +613,20 @@ function pushScoreToCloud(game, val) {
     fetch(`${baseUrl}/leaderboard/${game}/${myPlayerId}.json`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: tgUser.name, tag: tgUser.username, val: val, updatedAt: Date.now() })
+        body: JSON.stringify({
+            name: tgUser.name,
+            tag: tgUser.username,
+            val: val,
+            badge: getEquippedBadgeText(),
+            lbStyle: getEquippedLbStyle(),
+            updatedAt: Date.now()
+        })
     }).catch(() => {});
 }
 
 function syncExistingRecords() {
     if (isUserBanned) return;
+    initTgProfile();
     if (hubRecords.mines !== null && hubRecords.mines > 0) pushScoreToCloud('mines', hubRecords.mines);
     if (hubRecords.tetris > 0) pushScoreToCloud('tetris', hubRecords.tetris);
     if (hubRecords.zlab > 0) pushScoreToCloud('zlab', hubRecords.zlab);
@@ -333,6 +701,8 @@ async function switchLbTab(tab, silent = false) {
                         name: item.name || 'Игрок',
                         tag: item.tag || '',
                         val: Number(item.val) || 0,
+                        badge: item.badge || '',
+                        lbStyle: item.lbStyle || '',
                         isMe: id === myPlayerId
                     }));
             }
@@ -342,7 +712,15 @@ async function switchLbTab(tab, silent = false) {
     const myVal = hubRecords[tab];
     const hasScore = !isUserBanned && (tab === 'mines' ? (myVal !== null && myVal > 0) : (myVal > 0));
     if (hasScore && !list.some(x => x.isMe)) {
-        list.push({ id: myPlayerId, name: tgUser.name, tag: tgUser.username, val: myVal, isMe: true });
+        list.push({
+            id: myPlayerId,
+            name: tgUser.name,
+            tag: tgUser.username,
+            val: myVal,
+            badge: getEquippedBadgeText(),
+            lbStyle: getEquippedLbStyle(),
+            isMe: true
+        });
     }
 
     if (tab === 'mines') list.sort((a, b) => a.val - b.val);
@@ -376,18 +754,20 @@ async function switchLbTab(tab, silent = false) {
     const medals = ['🥇', '🥈', '🥉'];
     list.forEach((item, idx) => {
         const row = document.createElement('div');
-        row.className = 'lb-row' + (item.isMe ? ' is-me' : '');
+        const glowClass = item.lbStyle === 'gold' ? ' lb-glow-gold' : item.lbStyle === 'rainbow' ? ' lb-glow-rainbow' : '';
+        row.className = 'lb-row' + (item.isMe ? ' is-me' : '') + glowClass;
         const rankStr = medals[idx] || `#${idx + 1}`;
         const scoreStr = tab === 'mines' ? `⏱ ${item.val}с`
                        : tab === 'tetris' ? `${item.val} pts`
                        : `🧪 ${formatCompact(item.val)}`;
-        const displayName = item.isMe ? `${item.name} (Вы)` : item.name;
+        const badgeHtml = item.badge ? ` <span class="lb-badge-tag">${item.badge}</span>` : '';
+        const displayName = (item.isMe ? `${item.name} (Вы)` : item.name) + badgeHtml;
         row.innerHTML = `<div class="lb-left"><div class="lb-rank">${rankStr}</div><div style="min-width:0;"><div class="lb-name">${displayName}</div><div class="lb-tag">${item.tag}</div></div></div><div class="lb-score">${scoreStr}</div>`;
         listEl.appendChild(row);
     });
 }
 
-// ==================== АДМИН-ПАНЕЛЬ (БАН И СБРОС) ====================
+// ==================== АДМИН-ПАНЕЛЬ (БАН, СБРОС И ВЫДАЧА ГЕМОВ) ====================
 function isAdminAuthed() {
     try { return localStorage.getItem('gameHubAdminPin') === ADMIN_PIN; } catch { return false; }
 }
@@ -452,7 +832,7 @@ async function renderAdminList() {
 
         Object.entries(playersData).forEach(([id, info]) => {
             if (info && typeof info === 'object') {
-                playersMap[id] = { id, name: info.name || 'Игрок', tag: info.tag || '', mines: null, tetris: 0, zlab: 0, banned: false };
+                playersMap[id] = { id, name: info.name || 'Игрок', tag: info.tag || '', gems: info.gems || 0, mines: null, tetris: 0, zlab: 0, banned: false };
             }
         });
 
@@ -460,7 +840,7 @@ async function renderAdminList() {
             const gObj = lbData[game] || {};
             Object.entries(gObj).forEach(([id, info]) => {
                 if (!playersMap[id]) {
-                    playersMap[id] = { id, name: info.name || 'Игрок', tag: info.tag || '', mines: null, tetris: 0, zlab: 0, banned: false };
+                    playersMap[id] = { id, name: info.name || 'Игрок', tag: info.tag || '', gems: 0, mines: null, tetris: 0, zlab: 0, banned: false };
                 }
                 playersMap[id][game] = info.val;
                 if (info.name) playersMap[id].name = info.name;
@@ -471,7 +851,7 @@ async function renderAdminList() {
         Object.entries(banData).forEach(([id, info]) => {
             if (info && info.banned) {
                 if (!playersMap[id]) {
-                    playersMap[id] = { id, name: info.name || 'Забаненный', tag: info.tag || '', mines: null, tetris: 0, zlab: 0, banned: true };
+                    playersMap[id] = { id, name: info.name || 'Забаненный', tag: info.tag || '', gems: 0, mines: null, tetris: 0, zlab: 0, banned: true };
                 } else {
                     playersMap[id].banned = true;
                     if (info.name) playersMap[id].name = info.name;
@@ -499,16 +879,18 @@ async function renderAdminList() {
                         <div class="lb-name">${p.name} ${p.banned ? '⛔' : ''}</div>
                         <div class="lb-tag">${p.tag} • ${p.id}</div>
                     </div>
+                    <div style="font-size:0.78rem; color:#f5d0fe; font-weight:900;">💎 ${p.gems || 0}</div>
                 </div>
                 <div class="admin-scores">
                     <span>💣 ${p.mines ? p.mines + 'с' : '—'}</span>
                     <span>🧱 ${p.tetris || 0}</span>
                     <span>🧪 ${formatCompact(p.zlab || 0)}</span>
                 </div>
-                <div class="admin-actions">
+                <div class="admin-actions" style="grid-template-columns: 1fr 1fr 1fr;">
+                    <button class="btn btn-xs" style="border-color:#e879f9; color:#f5d0fe;" onclick="adminGiveGems('${p.id}', '${safeName}', 100)">+100 💎</button>
                     <button class="btn btn-xs" style="border-color:#fbbf24; color:#fbbf24;" onclick="adminResetPlayer('${p.id}', '${safeName}')">🔄 Сброс</button>
                     <button class="btn btn-xs ${p.banned ? 'btn-green' : 'btn-red'}" onclick="adminToggleBan('${p.id}', '${safeName}', '${safeTag}', ${p.banned})">
-                        ${p.banned ? '✅ Разбанить' : '🚫 Забанить'}
+                        ${p.banned ? '✅ Разбан' : '🚫 Бан'}
                     </button>
                 </div>
             `;
@@ -517,6 +899,28 @@ async function renderAdminList() {
     } catch {
         listEl.innerHTML = `<div style="text-align:center; color:#ef4444; padding:20px;">Ошибка загрузки базы</div>`;
     }
+}
+
+async function adminGiveGems(playerId, name, amount) {
+    sfxClick();
+    if (playerId === myPlayerId) {
+        addGems(amount, 'Админ-выдача');
+        renderAdminList();
+        return;
+    }
+    const baseUrl = FIREBASE_URL.replace(/\/+$/, '');
+    try {
+        const res = await fetch(`${baseUrl}/players/${playerId}.json?t=${Date.now()}`, { cache: 'no-store' });
+        const info = (await res.json()) || {};
+        const nextGems = (Number(info.gems) || 0) + amount;
+        await fetch(`${baseUrl}/players/${playerId}.json`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ...info, gems: nextGems, lastSeen: Date.now() })
+        });
+        sfxVictory();
+        renderAdminList();
+    } catch {}
 }
 
 async function adminResetPlayer(playerId, name) {
@@ -547,7 +951,7 @@ async function adminToggleBan(playerId, name, tag, currentlyBanned) {
         await Promise.all([
             fetch(`${baseUrl}/banned/${playerId}.json`, { method: 'DELETE' }),
             fetch(`${baseUrl}/players/${playerId}.json`, {
-                method: 'PATCH',
+                method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ name, tag, lastSeen: Date.now() })
             })
@@ -561,7 +965,7 @@ async function adminToggleBan(playerId, name, tag, currentlyBanned) {
                 body: JSON.stringify({ banned: true, name, tag, reason: 'Читы / Автокликер', date: Date.now() })
             }),
             fetch(`${baseUrl}/players/${playerId}.json`, {
-                method: 'PATCH',
+                method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ name, tag, lastSeen: Date.now() })
             }),
@@ -1037,6 +1441,7 @@ function backToMenu() {
     stopAllGames();
     document.querySelectorAll('.screen').forEach(s => s.style.display = 'none');
     document.getElementById('main-menu').style.display = 'flex';
+    updateGemsUI();
 }
 function doVibrate(ms) {
     if (document.getElementById('vibrate-on').checked && navigator.vibrate) navigator.vibrate(ms);
