@@ -721,4 +721,71 @@ body.mj-theme-royal #mahjong-stage > div {
     color: #fde047; font-size: 0.74rem; font-weight: 900;
 }
 
+/* --- CYBER AIM (АИМ-ТРЕНАЖЁР) --- */
+.btn-aim {
+    border-color: #fb7185 !important; color: #ffe4e6 !important;
+    box-shadow: 0 0 16px rgba(251, 113, 133, 0.25);
+}
+.lb-tabs .stab-btn {
+    font-size: 0.72rem; padding: 8px 4px; white-space: nowrap;
+}
+.aim-hud {
+    width: 315px; max-width: 92vw;
+    display: flex; justify-content: space-between; align-items: center;
+    background: var(--panel); border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 12px; padding: 7px 12px; margin-bottom: 10px;
+    font-size: 0.78rem; color: #cbd5e1;
+}
+#aim-arena {
+    position: relative; width: 315px; max-width: 92vw; height: 390px; max-height: 60vh;
+    background: radial-gradient(circle at center, rgba(30, 41, 59, 0.85), rgba(15, 23, 42, 0.95));
+    border: 2px solid var(--accent); border-radius: 18px;
+    overflow: hidden; touch-action: none; user-select: none;
+    box-shadow: inset 0 0 25px rgba(56, 189, 248, 0.15), 0 0 18px rgba(56, 189, 248, 0.2);
+}
+.aim-target {
+    position: absolute; border-radius: 50%;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    font-size: 1.35rem; cursor: pointer; transform: translate(-50%, -50%);
+    user-select: none; -webkit-tap-highlight-color: transparent;
+}
+.aim-target.is-start {
+    width: 92px; height: 92px;
+    background: radial-gradient(circle, rgba(56, 189, 248, 0.35), rgba(14, 165, 233, 0.15));
+    border: 3px solid #38bdf8; color: #fff;
+    box-shadow: 0 0 24px rgba(56, 189, 248, 0.55);
+    animation: aimPulse 1.4s infinite;
+}
+.aim-target.is-start span { font-size: 1.9rem; line-height: 1; }
+.aim-target.is-start small { font-size: 0.72rem; font-weight: 900; letter-spacing: 1px; margin-top: 2px; }
+
+.aim-target.is-normal {
+    background: radial-gradient(circle, rgba(56, 189, 248, 0.4), rgba(2, 132, 199, 0.2));
+    border: 2.5px solid #38bdf8;
+    box-shadow: 0 0 14px rgba(56, 189, 248, 0.55);
+}
+.aim-target.is-moving {
+    background: radial-gradient(circle, rgba(251, 191, 36, 0.45), rgba(217, 119, 6, 0.2));
+    border: 2.5px solid #fbbf24;
+    box-shadow: 0 0 16px rgba(251, 191, 36, 0.65);
+}
+.aim-target.is-bonus {
+    background: radial-gradient(circle, rgba(74, 222, 128, 0.45), rgba(22, 163, 74, 0.2));
+    border: 2.5px solid #4ade80;
+    box-shadow: 0 0 16px rgba(74, 222, 128, 0.65);
+}
+.aim-target.is-bomb {
+    background: radial-gradient(circle, rgba(239, 68, 68, 0.45), rgba(185, 28, 28, 0.25));
+    border: 2.5px solid #ef4444;
+    box-shadow: 0 0 16px rgba(239, 68, 68, 0.7);
+}
+@keyframes aimPulse {
+    0%, 100% { transform: translate(-50%, -50%) scale(1); }
+    50% { transform: translate(-50%, -50%) scale(1.07); }
+}
+body.minimal-mode #aim-arena {
+    background: #1c1f26; border-color: rgba(255,255,255,0.2); box-shadow: none;
+}
+
+
 
