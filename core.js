@@ -68,31 +68,31 @@ function shareGameScore(text) {
 const SHOP_CATALOG = [
     // Тетрис скины
     { id: 'tskin_default', cat: 'tetris', icon: '🟦', name: 'Классический неон', desc: 'Стандартная палитра блоков', price: 0, type: 'tetris_skin' },
-    { id: 'tskin_gold',    cat: 'tetris', icon: '🟨', name: 'Золотые слитки',    desc: 'Роскошные золотые блоки с бликом', price: 80, type: 'tetris_skin' },
-    { id: 'tskin_matrix',  cat: 'tetris', icon: '🟩', name: 'Код Матрицы',       desc: 'Кислотно-зелёный хакерский стиль', price: 120, type: 'tetris_skin' },
-    { id: 'tskin_cyber',   cat: 'tetris', icon: '🟪', name: 'Киберпанк 2077',    desc: 'Неоново-розовые и бирюзовые блоки', price: 160, type: 'tetris_skin' },
-    { id: 'tskin_ice',     cat: 'tetris', icon: '❄️', name: 'Крио-лёд',          desc: 'Ледяные кристаллы с морозным оттенком', price: 200, type: 'tetris_skin' },
+    { id: 'tskin_gold',    cat: 'tetris', icon: '🟨', name: 'Золотые слитки',    desc: 'Роскошные золотые блоки с бликом', price: 450, type: 'tetris_skin' },
+    { id: 'tskin_matrix',  cat: 'tetris', icon: '🟩', name: 'Код Матрицы',       desc: 'Кислотно-зелёный хакерский стиль', price: 700, type: 'tetris_skin' },
+    { id: 'tskin_cyber',   cat: 'tetris', icon: '🟪', name: 'Киберпанк 2077',    desc: 'Неоново-розовые и бирюзовые блоки', price: 1000, type: 'tetris_skin' },
+    { id: 'tskin_ice',     cat: 'tetris', icon: '❄️', name: 'Крио-лёд',          desc: 'Ледяные кристаллы с морозным оттенком', price: 1500, type: 'tetris_skin' },
 
     // Темы Маджонга
     { id: 'mj_default', cat: 'mahjong', icon: '🀄', name: 'Классика',             desc: 'Светлые традиционные кости', price: 0, type: 'mj_theme' },
-    { id: 'mj_carbon',  cat: 'mahjong', icon: '⬛', name: 'Тёмный карбон',        desc: 'Строгие графитовые фишки с неоном', price: 90, type: 'mj_theme' },
-    { id: 'mj_jade',    cat: 'mahjong', icon: '🟢', name: 'Императорский нефрит', desc: 'Изумрудные фишки с золотым кантом', price: 140, type: 'mj_theme' },
-    { id: 'mj_royal',   cat: 'mahjong', icon: '🟥', name: 'Королевский рубин',    desc: 'Бордово-золотой премиум стиль', price: 190, type: 'mj_theme' },
+    { id: 'mj_carbon',  cat: 'mahjong', icon: '⬛', name: 'Тёмный карбон',        desc: 'Строгие графитовые фишки с неоном', price: 500, type: 'mj_theme' },
+    { id: 'mj_jade',    cat: 'mahjong', icon: '🟢', name: 'Императорский нефрит', desc: 'Изумрудные фишки с золотым кантом', price: 850, type: 'mj_theme' },
+    { id: 'mj_royal',   cat: 'mahjong', icon: '🟥', name: 'Королевский рубин',    desc: 'Бордово-золотой премиум стиль', price: 1300, type: 'mj_theme' },
 
     // Значки и подсветка в топе
     { id: 'badge_none',   cat: 'profile', icon: '👤', name: 'Без значка',      desc: 'Обычное отображение имени', price: 0, type: 'badge', badgeText: '' },
-    { id: 'badge_fire',   cat: 'profile', icon: '🔥', name: 'Значок Огонёк',   desc: 'Добавляет 🔥 рядом с ником в топе', price: 60, type: 'badge', badgeText: '🔥' },
-    { id: 'badge_crown',  cat: 'profile', icon: '👑', name: 'Значок Корона',   desc: 'Королевский статус 👑 в рейтинге', price: 150, type: 'badge', badgeText: '👑' },
-    { id: 'badge_vip',    cat: 'profile', icon: '💎', name: 'Тег [VIP]',       desc: 'Эксклюзивный тег [VIP] у твоего имени', price: 250, type: 'badge', badgeText: 'VIP' },
-    { id: 'badge_dragon', cat: 'profile', icon: '🐉', name: 'Значок Легенда',  desc: 'Редкий значок 🐉 для топ-игроков', price: 400, type: 'badge', badgeText: '🐉' },
+    { id: 'badge_fire',   cat: 'profile', icon: '🔥', name: 'Значок Огонёк',   desc: 'Добавляет 🔥 рядом с ником в топе', price: 250, type: 'badge', badgeText: '🔥' },
+    { id: 'badge_crown',  cat: 'profile', icon: '👑', name: 'Значок Корона',   desc: 'Королевский статус 👑 в рейтинге', price: 800, type: 'badge', badgeText: '👑' },
+    { id: 'glow_gold',    cat: 'profile', icon: '🌟', name: 'Золотая аура',    desc: 'Твоя строчка в топе светится золотом', price: 1200, type: 'lb_glow' },
+    { id: 'badge_vip',    cat: 'profile', icon: '💎', name: 'Тег [VIP]',       desc: 'Эксклюзивный тег [VIP] у твоего имени', price: 2500, type: 'badge', badgeText: 'VIP' },
+    { id: 'glow_rainbow', cat: 'profile', icon: '🌈', name: 'Неоновый градиент',desc: 'Яркая переливающаяся рамка в топе', price: 3500, type: 'lb_glow' },
+    { id: 'badge_dragon', cat: 'profile', icon: '🐉', name: 'Значок Легенда',  desc: 'Редкий значок 🐉 для топ-игроков', price: 5000, type: 'badge', badgeText: '🐉' },
     { id: 'glow_default', cat: 'profile', icon: '▫️', name: 'Обычная рамка',   desc: 'Стандартная карточка в топе', price: 0, type: 'lb_glow' },
-    { id: 'glow_gold',    cat: 'profile', icon: '🌟', name: 'Золотая аура',    desc: 'Твоя строчка в топе светится золотом', price: 180, type: 'lb_glow' },
-    { id: 'glow_rainbow', cat: 'profile', icon: '🌈', name: 'Неоновый градиент',desc: 'Яркая переливающаяся рамка в топе', price: 320, type: 'lb_glow' },
 
     // Бусты Зомби-лабы
-    { id: 'boost_zx2',     cat: 'boosts', icon: '⚡', name: 'Мутаген ×2 (15 мин)', desc: 'Удваивает клик и автодоход в Лабе', price: 45, type: 'consumable' },
-    { id: 'z_autoflask',   cat: 'boosts', icon: '🤖', name: 'Дрон-сборщик колб',   desc: 'Навсегда: сам ловит Золотые колбы', price: 220, type: 'permanent' },
-    { id: 'z_gem_drill',   cat: 'boosts', icon: '⛏️', name: 'Кристальный бур',     desc: 'Навсегда: +5 💎 вместо +2 💎 за колбу', price: 300, type: 'permanent' }
+    { id: 'boost_zx2',     cat: 'boosts', icon: '⚡', name: 'Мутаген ×2 (15 мин)', desc: 'Удваивает клик и автодоход в Лабе', price: 120, type: 'consumable' },
+    { id: 'z_autoflask',   cat: 'boosts', icon: '🤖', name: 'Дрон-сборщик колб',   desc: 'Навсегда: сам ловит Золотые колбы', price: 1800, type: 'permanent' },
+    { id: 'z_gem_drill',   cat: 'boosts', icon: '⛏️', name: 'Кристальный бур',     desc: 'Навсегда: +5 💎 вместо +2 💎 за колбу', price: 2500, type: 'permanent' }
 ];
 
 let ecoState = loadEcoState();
@@ -194,7 +194,7 @@ function getTodayKey() {
 
 function getDailyRewardAmount() {
     const streak = (ecoState.dailyStreak || 0) + 1;
-    return Math.min(150, 50 + (streak - 1) * 25);
+    return Math.min(100, 25 + (streak - 1) * 15);
 }
 
 function updateDailyBonusUI() {
@@ -223,7 +223,7 @@ function claimDailyBonus() {
     ecoState.dailyStreak = (ecoState.dailyLastDay === yKey) ? (ecoState.dailyStreak || 0) + 1 : 1;
     ecoState.dailyLastDay = today;
 
-    const reward = Math.min(150, 50 + (ecoState.dailyStreak - 1) * 25);
+    const reward = Math.min(100, 25 + (ecoState.dailyStreak - 1) * 15);
     ecoState.gems = getGems() + reward;
     saveEcoState();
     syncGemsToCloud();
@@ -318,7 +318,6 @@ function buyOrEquipShopItem(id) {
     const isOwned = ecoState.owned.includes(item.id);
     const isEquippable = ['tetris_skin', 'mj_theme', 'badge', 'lb_glow'].includes(item.type);
 
-    // Если уже куплено — просто надеваем
     if (isOwned && item.type !== 'consumable') {
         if (isEquippable) {
             ecoState.equipped[item.type] = item.id;
@@ -333,7 +332,6 @@ function buyOrEquipShopItem(id) {
         return;
     }
 
-    // Покупка
     if (getGems() < item.price) {
         sfxAlarm();
         doVibrate(120);
