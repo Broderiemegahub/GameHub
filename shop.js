@@ -41,6 +41,7 @@ const SHOP_CATALOG = [
 
 let ecoState = loadEcoState();
 let currentShopTab = 'mines';
+let isManualGemSyncing = false;
 
 function getDefaultEcoState() {
     return {
@@ -425,13 +426,24 @@ function buyOrEquipShopItem(id) {
     renderShopItems();
 }
 
-async function syncGemsToCloud() {
-    if (!cloudSyncReady) return;
+async function manualSyncGems() {
+    if (isUserBanned || isManualGemSyncing) return;
+    isManualGemSyncing = true;
+    sfxClick();
+    doVibrate(20);
+    spawnFloatText(window.innerWidth / 2, 105, '⏳ Проверяем баланс...', '#38bdf8');
+    await syncGemsToCloud(true);
+    isManualGemSyncing = false;
+}
+
+async function syncGemsToCloud(isManual = false) {
+    if (!cloudSyncReady && !isManual) return;
     const baseUrl = FIREBASE_URL.replace(/\/+$/, '');
     if (!baseUrl.startsWith('http')) return;
     try {
         const res = await fetch(`${baseUrl}/players/${myPlayerId}.json?t=${Date.now()}`, { cache: 'no-store' });
-        const existing = (res.ok ? await res.json() : null) || {};
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const existing = (await res.json()) || {};
         const cloudIssued = Number(existing.issuedGems) || 0;
 
         if (cloudIssued !== (ecoState.claimedIssuedGems || 0)) {
@@ -441,9 +453,17 @@ async function syncGemsToCloud() {
             saveEcoState();
             if (diff > 0) {
                 sfxVictory();
+                doVibrate([40, 30, 80]);
                 spawnFloatText(window.innerWidth / 2, 120, `💎 Зачислено +${diff} 💎!`, '#4ade80');
+            } else if (isManual) {
+                spawnFloatText(window.innerWidth / 2, 120, '✅ Баланс обновлён', '#4ade80');
             }
+        } else if (isManual) {
+            sfxPop();
+            spawnFloatText(window.innerWidth / 2, 120, '✅ Баланс обновлён', '#4ade80');
         }
+
+        cloudSyncReady = true;
 
         await fetch(`${baseUrl}/players/${myPlayerId}.json`, {
             method: 'PUT',
@@ -458,7 +478,13 @@ async function syncGemsToCloud() {
                 lastSeen: Date.now()
             })
         });
-    } catch {}
+    } catch {
+        if (isManual) {
+            sfxAlarm();
+            doVibrate(140);
+            spawnFloatText(window.innerWidth / 2, 120, '⚠️ Нет связи с базой (включи VPN)', '#ef4444');
+        }
+    }
 }
 
 function setupVictoryObservers() {
