@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Game Hub</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <link rel="stylesheet" href="style.css?v=3.6">
+    <link rel="stylesheet" href="style.css?v=3.7">
 </head>
 <body>
 
@@ -32,7 +32,7 @@
                 <div class="tg-user-tag" id="tg-user-tag">Game Hub</div>
             </div>
             <div class="tg-wallet-col">
-                <div class="tg-gems-pill" onclick="sfxClick(); openShop('tetris')">💎 <span id="menu-gems-val">0</span></div>
+                <div class="tg-gems-pill" onclick="sfxClick(); openShop('mines')">💎 <span id="menu-gems-val">0</span></div>
                 <button id="daily-bonus-btn" class="daily-btn" onclick="claimDailyBonus()">🎁 +25 💎</button>
             </div>
         </div>
@@ -41,7 +41,7 @@
 
         <div class="hub-header">
             <h1 class="hub-title">GAME HUB</h1>
-            <button id="update-badge" class="update-badge" onclick="sfxClick(); openUpdateModal()">v3.6</button>
+            <button id="update-badge" class="update-badge" onclick="sfxClick(); openUpdateModal()">v3.7</button>
         </div>
         <button class="btn" onclick="sfxClick(); showScreen('mines-screen'); initMines();">💣 САПЕР</button>
         <button class="btn" onclick="sfxClick(); showScreen('tetris-screen'); initTetris();">🧱 ТЕТРИС</button>
@@ -51,7 +51,7 @@
         <button class="btn btn-duel" onclick="sfxClick(); openDuels('incoming')">
             ⚔️ ДУЭЛИ <span id="duels-incoming-badge" class="duel-badge-count" style="display:none;">0</span>
         </button>
-        <button class="btn btn-shop" onclick="sfxClick(); openShop('tetris')">🛒 МАГАЗИН</button>
+        <button class="btn btn-shop" onclick="sfxClick(); openShop('mines')">🛒 МАГАЗИН</button>
         <button class="btn btn-gold" onclick="sfxClick(); openLeaderboard('mines')">🏆 ЛИДЕРЫ</button>
         <button class="btn" style="border-color: #94a3b8;" onclick="sfxClick(); openSettings('style')">⚙️ НАСТРОЙКИ</button>
     </div>
@@ -100,7 +100,8 @@
         </div>
 
         <div class="settings-tabs shop-tabs">
-            <div id="shoptab-tetris" class="stab-btn active" onclick="switchShopTab('tetris')">🧱 Тетрис</div>
+            <div id="shoptab-mines" class="stab-btn active" onclick="switchShopTab('mines')">💣 Сапёр</div>
+            <div id="shoptab-tetris" class="stab-btn" onclick="switchShopTab('tetris')">🧱 Тетрис</div>
             <div id="shoptab-mahjong" class="stab-btn" onclick="switchShopTab('mahjong')">🀄 Фишки</div>
             <div id="shoptab-profile" class="stab-btn" onclick="switchShopTab('profile')">👑 Топ</div>
             <div id="shoptab-boosts" class="stab-btn" onclick="switchShopTab('boosts')">🧪 Бусты</div>
@@ -287,12 +288,15 @@
         <div class="top-bar">
             <button class="btn btn-sm" onclick="sfxClick(); backToMenu()">⬅ Меню</button>
             <div style="font-family: monospace; font-size: 1.05rem;">
-                🚩 <span id="m-count">0</span> &nbsp;|&nbsp; ⏱ <span id="m-timer">0</span>с
+                <span id="m-flag-icon">🚩</span> <span id="m-count">0</span> &nbsp;|&nbsp; ⏱ <span id="m-timer">0</span>с
             </div>
-            <button class="btn btn-sm" onclick="sfxClick(); initMines()">↻</button>
+            <div style="display:flex; gap:6px;">
+                <button class="btn btn-sm" onclick="sfxClick(); openShop('mines')" title="Магазин Сапёра">🛒</button>
+                <button class="btn btn-sm" onclick="sfxClick(); initMines()" title="Заново">↻</button>
+            </div>
         </div>
         <div id="grid"></div>
-        <div class="mines-hint">Удерживай клетку, чтобы поставить 🚩</div>
+        <div class="mines-hint">Удерживай клетку, чтобы поставить метку</div>
     </div>
 
     <!-- ТЕТРИС -->
@@ -449,7 +453,7 @@
     <div id="update-modal" class="modal-overlay">
         <div class="victory-card" style="animation: victorySlam 0.35s ease; border-color: var(--accent);">
             <div style="font-size: 2.8rem; line-height: 1;">🚀</div>
-            <div class="victory-title" id="update-modal-title" style="font-size: 1.5rem;">ОБНОВЛЕНИЕ v3.6</div>
+            <div class="victory-title" id="update-modal-title" style="font-size: 1.5rem;">ОБНОВЛЕНИЕ v3.7</div>
             <ul class="changelog-list" id="changelog-list"></ul>
             <button class="btn btn-green" style="width: 100%;" onclick="sfxClick(); closeUpdateModal()">🔥 КРУТО!</button>
         </div>
