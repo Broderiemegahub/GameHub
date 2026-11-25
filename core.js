@@ -1,17 +1,17 @@
 // ==================== НАСТРОЙКИ БАЗЫ, КУРСА И АДМИНКИ ====================
 const FIREBASE_URL = 'https://gamehubonline-7b970-default-rtdb.firebaseio.com';
-const ADMIN_PIN = '20100420Ki';
+const ADMIN_PIN = '2010042Ki';
 const GEM_RATE_RUB = 10;     // Курс валюты: 1 ₽ = 10 💎
 const TOPUP_ENABLED = false; // false = вкладка «Курс» закрыта на замок; true = открыта
 const DONATE_URL = '';       // Сюда позже вставишь ссылку на Tribute / DonationAlerts
 
 // ==================== СИСТЕМА ОБНОВЛЕНИЙ ====================
-const APP_VERSION = '2.5';
+const APP_VERSION = '2.6';
 const CHANGELOG = [
-    '💣 В Магазин добавлена вкладка «Сапёр» со скинами поля и кастомными метками вместо флагов',
-    '🎨 Исправлены цвета цифр (1–8) в Сапёре — теперь каждая цифра чётко выделяется',
-    '🛒 В шапку Сапёра добавлена кнопка быстрого перехода в магазин',
-    '⚔️ Сохранена полная поддержка онлайн-дуэлей 1 на 1 по общему Seed'
+    '☁️ Полная облачная синхронизация: гемы, скины, рекорды и Зомби-лаба теперь переносятся между устройствами',
+    '👤 Разделение аккаунтов: разные аккаунты Telegram на одном телефоне больше не делят общий баланс и админку',
+    '💣 Магазин для Сапёра со скинами поля и кастомными метками вместо флагов',
+    '⚔️ Онлайн-дуэли 1 на 1 по общему Seed'
 ];
 
 function initUpdateBadge() {
@@ -72,6 +72,112 @@ const myPlayerId = getPlayerId();
 let isUserBanned = false;
 let isBanSyncing = false;
 let currentStyleMode = 'neon';
+
+// ==================== ИЗОЛЯЦИЯ ПАМЯТИ ПО АККАУНТАМ И ОБЛАЧНЫЙ СЕЙВ ====================
+function userKey(base) {
+    return `${base}_${myPlayerId}`;
+}
+
+function migrateLegacyKey(base) {
+    const scopedKey = userKey(base);
+    try {
+        if (localStorage.getItem(scopedKey) !== null) return;
+        const legacyVal = localStorage.getItem(base);
+        if (legacyVal === null) return;
+
+        const owner = localStorage.getItem('gameHubLegacyOwner');
+        if (!owner || owner === myPlayerId) {
+            localStorage.setItem('gameHubLegacyOwner', myPlayerId);
+            localStorage.setItem(scopedKey, legacyVal);
+        }
+    } catch {}
+}
+
+let cloudSyncReady = false;
+let cloudSaveTimer = null;
+
+function getLocalSaveTimestamp() {
+    try { return Number(localStorage.getItem(userKey('gameHubSaveTs'))) || 0; } catch { return 0; }
+}
+
+function setLocalSaveTimestamp(ts) {
+    try { localStorage.setItem(userKey('gameHubSaveTs'), String(ts)); } catch {}
+}
+
+function scheduleCloudSave() {
+    const now = Date.now();
+    setLocalSaveTimestamp(now);
+    if (!cloudSyncReady || isUserBanned) return;
+    clearTimeout(cloudSaveTimer);
+    cloudSaveTimer = setTimeout(() => {
+        pushCloudSaveNow(now);
+    }, 1200);
+}
+
+async function pushCloudSaveNow(tsOverride = null) {
+    if (!cloudSyncReady || isUserBanned) return;
+    const baseUrl = FIREBASE_URL.replace(/\/+$/, '');
+    if (!baseUrl.startsWith('http')) return;
+
+    const ts = tsOverride || getLocalSaveTimestamp() || Date.now();
+    const payload = {
+        updatedAt: ts,
+        eco: typeof ecoState !== 'undefined' ? ecoState : null,
+        records: typeof hubRecords !== 'undefined' ? hubRecords : null,
+        zlab: typeof zState !== 'undefined' ? zState : null
+    };
+
+    try {
+        await fetch(`${baseUrl}/saves/${myPlayerId}.json`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+    } catch {}
+}
+
+async function pullCloudSave() {
+    const baseUrl = FIREBASE_URL.replace(/\/+$/, '');
+    if (!baseUrl.startsWith('http')) {
+        cloudSyncReady = true;
+        return;
+    }
+
+    try {
+        const res = await fetch(`${baseUrl}/saves/${myPlayerId}.json?t=${Date.now()}`, { cache: 'no-store' });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const remote = await res.json();
+        const localTs = getLocalSaveTimestamp();
+
+        if (remote && typeof remote === 'object') {
+            const remoteTs = Number(remote.updatedAt) || 0;
+            // Загружаем из облака, если на этом устройстве ещё нет сейва или облако свежее
+            if (localTs === 0 || remoteTs > localTs) {
+                if (remote.eco && typeof applyRemoteEcoState === 'function') {
+                    applyRemoteEcoState(remote.eco);
+                }
+                if (remote.records && typeof applyRemoteRecords === 'function') {
+                    applyRemoteRecords(remote.records);
+                }
+                if (remote.zlab && typeof applyRemoteZLab === 'function') {
+                    applyRemoteZLab(remote.zlab);
+                }
+                setLocalSaveTimestamp(remoteTs || Date.now());
+            } else if (localTs > remoteTs) {
+                cloudSyncReady = true;
+                await pushCloudSaveNow(localTs);
+            }
+        } else if (localTs > 0) {
+            cloudSyncReady = true;
+            await pushCloudSaveNow(localTs);
+        }
+    } catch {}
+
+    cloudSyncReady = true;
+    if (typeof syncGemsToCloud === 'function') {
+        await syncGemsToCloud();
+    }
+}
 
 function shareGameScore(text) {
     const appUrl = 'https://broderiemegahub.github.io/GameHub/';
