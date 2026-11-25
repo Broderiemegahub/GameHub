@@ -42,8 +42,8 @@ const SHOP_CATALOG = [
 let ecoState = loadEcoState();
 let currentShopTab = 'mines';
 
-function loadEcoState() {
-    const def = {
+function getDefaultEcoState() {
+    return {
         gems: 0,
         claimedIssuedGems: 0,
         owned: ['mskin_default', 'mflag_default', 'tskin_default', 'mj_default', 'badge_none', 'glow_default'],
@@ -59,8 +59,13 @@ function loadEcoState() {
         dailyStreak: 0,
         zBoostUntil: 0
     };
+}
+
+function loadEcoState() {
+    migrateLegacyKey('gameHubEconomy');
+    const def = getDefaultEcoState();
     try {
-        const raw = localStorage.getItem('gameHubEconomy');
+        const raw = localStorage.getItem(userKey('gameHubEconomy'));
         if (raw) {
             const parsed = JSON.parse(raw);
             return {
@@ -74,11 +79,27 @@ function loadEcoState() {
     return def;
 }
 
-function saveEcoState() {
-    try { localStorage.setItem('gameHubEconomy', JSON.stringify(ecoState)); } catch {}
+function applyRemoteEcoState(remoteEco) {
+    const def = getDefaultEcoState();
+    ecoState = {
+        ...def,
+        ...remoteEco,
+        owned: Array.isArray(remoteEco.owned) ? Array.from(new Set([...def.owned, ...remoteEco.owned])) : def.owned,
+        equipped: { ...def.equipped, ...(remoteEco.equipped || {}) }
+    };
+    try { localStorage.setItem(userKey('gameHubEconomy'), JSON.stringify(ecoState)); } catch {}
+    initTgProfile();
     updateGemsUI();
     applyMahjongTheme();
     applyMinesTheme();
+}
+
+function saveEcoState() {
+    try { localStorage.setItem(userKey('gameHubEconomy'), JSON.stringify(ecoState)); } catch {}
+    updateGemsUI();
+    applyMahjongTheme();
+    applyMinesTheme();
+    scheduleCloudSave();
 }
 
 function getGems() {
@@ -405,6 +426,7 @@ function buyOrEquipShopItem(id) {
 }
 
 async function syncGemsToCloud() {
+    if (!cloudSyncReady) return;
     const baseUrl = FIREBASE_URL.replace(/\/+$/, '');
     if (!baseUrl.startsWith('http')) return;
     try {
@@ -475,5 +497,4 @@ function setupVictoryObservers() {
 applyMahjongTheme();
 applyMinesTheme();
 initTgProfile();
-syncGemsToCloud();
 setupVictoryObservers();
