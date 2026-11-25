@@ -97,8 +97,10 @@ function stopZombieLab() {
 }
 
 function loadZombieLab() {
+    if (typeof migrateLegacyKey === 'function') migrateLegacyKey('zombieLabSave');
     try {
-        const raw = localStorage.getItem('zombieLabSave');
+        const key = typeof userKey === 'function' ? userKey('zombieLabSave') : 'zombieLabSave';
+        const raw = localStorage.getItem(key);
         if (raw) {
             const parsed = JSON.parse(raw);
             return { mutagen: 0, total: 0, owned: {}, maxStageIdx: 0, ...parsed };
@@ -107,9 +109,24 @@ function loadZombieLab() {
     return { mutagen: 0, total: 0, owned: {}, maxStageIdx: 0 };
 }
 
+function applyRemoteZLab(remoteZ) {
+    zState = { mutagen: 0, total: 0, owned: {}, maxStageIdx: 0, ...remoteZ };
+    try {
+        const key = typeof userKey === 'function' ? userKey('zombieLabSave') : 'zombieLabSave';
+        localStorage.setItem(key, JSON.stringify(zState));
+    } catch {}
+    if (document.getElementById('zlab-screen')?.style.display === 'flex') {
+        renderZombieLab();
+    }
+}
+
 function saveZombieLab() {
-    try { localStorage.setItem('zombieLabSave', JSON.stringify(zState)); } catch {}
+    try {
+        const key = typeof userKey === 'function' ? userKey('zombieLabSave') : 'zombieLabSave';
+        localStorage.setItem(key, JSON.stringify(zState));
+    } catch {}
     if (typeof updateRecord === 'function') updateRecord('zlab', Math.floor(zState.total));
+    if (typeof scheduleCloudSave === 'function') scheduleCloudSave();
 }
 
 function shareZLabScore() {
@@ -151,7 +168,8 @@ function openZombieLab() {
 
         if (perSec > 0 && secMult > 0) {
             const gain = (perSec * secMult) / 5;
-            zState.mutagen += gain; zState.total += gain;
+            zState.mutagen += gain;
+            zState.total += gain;
         }
         zTicks++;
         if (zTicks % 15 === 0) saveZombieLab();
