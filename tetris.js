@@ -21,6 +21,13 @@ function getActiveTColors() {
         : [null, '#38bdf8', '#fbbf24', '#a855f7', '#4ade80', '#ef4444', '#3b82f6', '#f97316'];
 }
 
+function nextTetrisRandomId() {
+    const rng = (typeof activeDuel !== 'undefined' && activeDuel && activeDuel.game === 'tetris' && typeof duelRng === 'function')
+        ? duelRng
+        : Math.random;
+    return Math.floor(rng() * 7) + 1;
+}
+
 function stopTetris() {
     if (tInt) { clearInterval(tInt); tInt = null; }
 }
@@ -33,16 +40,17 @@ function initTetris() {
     tBoard = Array.from({ length: 20 }, () => Array(10).fill(0));
     document.getElementById('tetris-score').innerText = '0';
 
-    const speed = parseInt(document.getElementById('tetris-speed').value);
-    tNextId = Math.floor(Math.random() * 7) + 1;
+    const isDuel = typeof activeDuel !== 'undefined' && activeDuel && activeDuel.game === 'tetris';
+    const speed = isDuel ? 450 : parseInt(document.getElementById('tetris-speed').value);
+    tNextId = nextTetrisRandomId();
     spawnT();
     drawT();
     tInt = setInterval(stepT, speed);
 }
 
 function spawnT() {
-    const id = tNextId || (Math.floor(Math.random() * 7) + 1);
-    tNextId = Math.floor(Math.random() * 7) + 1;
+    const id = tNextId || nextTetrisRandomId();
+    tNextId = nextTetrisRandomId();
     drawNextT();
 
     const shape = T_SHAPES[id].map(r => [...r]);
@@ -59,6 +67,11 @@ function spawnT() {
         sfxExplosion();
         triggerShake(true);
         doVibrate([100, 50, 100]);
+
+        if (typeof activeDuel !== 'undefined' && activeDuel && activeDuel.game === 'tetris') {
+            setTimeout(() => finishDuelAttempt(tScore, false), 350);
+            return;
+        }
 
         const isNewBest = updateRecord('tetris', tScore);
         const earnedGems = tScore >= 50 ? Math.max(2, Math.floor(tScore / 50)) : 0;
