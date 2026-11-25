@@ -6,12 +6,12 @@ const TOPUP_ENABLED = false; // false = вкладка «Курс» закрыт
 const DONATE_URL = '';       // Сюда позже вставишь ссылку на Tribute / DonationAlerts
 
 // ==================== СИСТЕМА ОБНОВЛЕНИЙ ====================
-const APP_VERSION = '2.4';
+const APP_VERSION = '2.5';
 const CHANGELOG = [
-    '🎯 Добавлена 5-я игра — «Cyber Aim» (аим-тренажёр на реакцию и комбо за 30 секунд!)',
-    '🏆 В таблицу лидеров добавлена 4-я вкладка с рекордами Cyber Aim',
-    '💎 За высокие очки в Cyber Aim автоматически начисляются кристаллы',
-    '🔔 Подключены уведомления от бота в личку при пополнении баланса админом'
+    '⚔️ Запущен онлайн-режим Дуэлей 1 на 1 со ставками в гемах прямо внутри бота!',
+    '🎲 Честный подбор: обоим соперникам генерируется одинаковое поле в Сапёре, фигуры в Тетрисе и мишени в Аиме',
+    '🟢 В списке соперников виден онлайн-статус игроков, а выигрыш зачисляется автоматически',
+    '🎯 Добавлена 5-я игра — «Cyber Aim» с комбо и рекордами'
 ];
 
 function initUpdateBadge() {
@@ -137,6 +137,9 @@ function stopAllGames() {
     document.getElementById('tetris-result-overlay').classList.remove('active');
     const aimOverlay = document.getElementById('aim-result-overlay');
     if (aimOverlay) aimOverlay.classList.remove('active');
+    const duelOverlay = document.getElementById('duel-result-overlay');
+    if (duelOverlay) duelOverlay.classList.remove('active');
+
     if (typeof stopMines === 'function') stopMines();
     if (typeof stopTetris === 'function') stopTetris();
     if (typeof stopZombieLab === 'function') stopZombieLab();
@@ -153,10 +156,14 @@ function showScreen(id) {
 
 function backToMenu() {
     if (isUserBanned) return;
+    if (typeof activeDuel !== 'undefined' && activeDuel) {
+        if (!abortActiveDuel()) return;
+    }
     stopAllGames();
     document.querySelectorAll('.screen').forEach(s => s.style.display = 'none');
     document.getElementById('main-menu').style.display = 'flex';
     if (typeof updateGemsUI === 'function') updateGemsUI();
+    if (typeof syncDuelsAndPayouts === 'function') syncDuelsAndPayouts();
 }
 
 function doVibrate(ms) {
