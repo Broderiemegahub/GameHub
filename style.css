@@ -787,5 +787,99 @@ body.minimal-mode #aim-arena {
     background: #1c1f26; border-color: rgba(255,255,255,0.2); box-shadow: none;
 }
 
+/* --- ОНЛАЙН-ДУЭЛИ 1 НА 1 --- */
+.btn-duel {
+    border-color: #f43f5e !important; color: #ffe4e6 !important;
+    box-shadow: 0 0 18px rgba(244, 63, 94, 0.28);
+    position: relative;
+}
+.duel-badge-count {
+    display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 999px;
+    background: #f43f5e; color: #fff; font-size: 0.78rem; font-weight: 900;
+    box-shadow: 0 0 10px rgba(244, 63, 94, 0.75);
+}
+.menu-duel-banner {
+    width: 310px; max-width: 92vw;
+    background: linear-gradient(90deg, rgba(244, 63, 94, 0.25), rgba(232, 121, 249, 0.2));
+    border: 1.5px solid #f43f5e; border-radius: 12px; padding: 8px 12px;
+    font-size: 0.78rem; color: #ffe4e6; text-align: center; cursor: pointer;
+    box-shadow: 0 0 14px rgba(244, 63, 94, 0.35);
+    animation: dailyPulse 1.8s infinite;
+}
+#duel-live-banner {
+    position: fixed; top: 6px; left: 50%; transform: translateX(-50%);
+    z-index: 9000; padding: 4px 12px; border-radius: 999px;
+    background: rgba(244, 63, 94, 0.9); color: #fff;
+    font-size: 0.72rem; font-weight: 900; letter-spacing: 0.5px;
+    box-shadow: 0 0 14px rgba(244, 63, 94, 0.6); pointer-events: none;
+    white-space: nowrap;
+}
+.duel-setup-card {
+    background: var(--panel); border: 1.5px solid rgba(255,255,255,0.14);
+    border-radius: 16px; padding: 12px; display: flex; flex-direction: column; gap: 8px;
+}
+.duel-sec-title {
+    font-size: 0.72rem; font-weight: 900; color: #94a3b8; letter-spacing: 0.6px; margin-top: 2px;
+}
+.duel-chip-row {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;
+}
+.duel-bets-row {
+    grid-template-columns: repeat(5, 1fr);
+}
+.duel-chip {
+    background: rgba(15, 23, 42, 0.75); border: 1.5px solid rgba(255,255,255,0.14);
+    color: #cbd5e1; border-radius: 10px; padding: 7px 4px;
+    font-size: 0.74rem; font-weight: 800; cursor: pointer;
+}
+.duel-chip.active {
+    border-color: #f43f5e; background: rgba(244, 63, 94, 0.22); color: #fff;
+    box-shadow: 0 0 10px rgba(244, 63, 94, 0.3);
+}
+.duel-search-input {
+    width: 100%; box-sizing: border-box;
+    background: rgba(15, 23, 42, 0.8); border: 1.5px solid rgba(255,255,255,0.16);
+    border-radius: 10px; padding: 8px 10px; color: #fff; font-size: 0.82rem;
+}
+.duel-opponents-list {
+    max-height: 175px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px;
+}
+.duel-opponent-card {
+    background: rgba(15, 23, 42, 0.65); border: 1.5px solid rgba(255,255,255,0.1);
+    border-radius: 11px; padding: 8px 10px;
+    display: flex; align-items: center; justify-content: space-between; cursor: pointer;
+}
+.duel-opponent-card.selected {
+    border-color: #f43f5e; background: rgba(244, 63, 94, 0.18);
+}
+.online-dot {
+    width: 9px; height: 9px; border-radius: 50%; background: #64748b; flex-shrink: 0;
+}
+.online-dot.on {
+    background: #4ade80; box-shadow: 0 0 8px #4ade80;
+}
+.duel-card {
+    background: var(--panel); border: 1.5px solid rgba(255,255,255,0.12);
+    border-radius: 14px; padding: 11px 12px; display: flex; flex-direction: column; gap: 6px;
+}
+.duel-card.is-incoming {
+    border-color: #f43f5e; background: rgba(244, 63, 94, 0.12);
+}
+.duel-card-top {
+    display: flex; align-items: center; justify-content: space-between; gap: 8px;
+}
+.duel-bet-pill {
+    background: rgba(232, 121, 249, 0.18); border: 1px solid #e879f9;
+    color: #f5d0fe; border-radius: 999px; padding: 3px 8px;
+    font-size: 0.72rem; font-weight: 900; white-space: nowrap;
+}
+.duel-card-actions {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 2px;
+}
+.duel-safe-cell {
+    outline: 2px solid #4ade80 !important;
+    box-shadow: inset 0 0 10px rgba(74, 222, 128, 0.55) !important;
+}
+
 
 
