@@ -1,4 +1,4 @@
-// ==================== САПЁР (ОБЫЧНЫЙ РЕЖИМ И ДУЭЛИ ПО SEED) ====================
+// ==================== САПЁР (ОБЫЧНЫЙ РЕЖИМ, СКИНЫ И ДУЭЛИ ПО SEED) ====================
 let mSize = 8, mTotalMines = 10;
 let mBoard = [], mRevealed = [], mFlagged = [];
 let mFirstClick = true, mGameOver = false, mTimer = 0, mTimerInt = null;
@@ -28,6 +28,10 @@ function initMines() {
     mGameOver = false;
     mTimer = 0;
 
+    const flagHeader = document.getElementById('m-flag-icon');
+    if (flagHeader) {
+        flagHeader.innerText = typeof getMinesFlagIcon === 'function' ? getMinesFlagIcon() : '🚩';
+    }
     document.getElementById('m-count').innerText = mTotalMines;
     document.getElementById('m-timer').innerText = '0';
 
@@ -126,8 +130,9 @@ function toggleMineFlag(r, c) {
     sfxFlag();
     doVibrate(25);
 
+    const flagIcon = typeof getMinesFlagIcon === 'function' ? getMinesFlagIcon() : '🚩';
     const el = document.getElementById(`mcell-${r}-${c}`);
-    el.innerText = mFlagged[r][c] ? '🚩' : '';
+    el.innerText = mFlagged[r][c] ? flagIcon : '';
     el.classList.toggle('flagged', mFlagged[r][c]);
 
     let flags = 0;
