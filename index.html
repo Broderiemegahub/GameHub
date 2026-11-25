@@ -5,12 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Game Hub</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <link rel="stylesheet" href="style.css?v=3.5">
+    <link rel="stylesheet" href="style.css?v=3.6">
 </head>
 <body>
 
     <canvas id="bg-canvas"></canvas>
     <canvas id="fx-canvas"></canvas>
+
+    <!-- ПЛАШКА АКТИВНОЙ ДУЭЛИ ВО ВРЕМЯ КАТКИ -->
+    <div id="duel-live-banner" style="display:none;">⚔️ ДУЭЛЬ</div>
 
     <!-- ЛЕТАЮЩИЕ СОБЫТИЯ ЗОМБИ-ЛАБЫ -->
     <div id="zlab-golden-flask" class="floating-event-btn" onclick="catchGoldenFlask(event)">🧪</div>
@@ -34,18 +37,40 @@
             </div>
         </div>
 
+        <div id="menu-duel-banner" class="menu-duel-banner" style="display:none;" onclick="sfxClick(); openDuels('incoming')"></div>
+
         <div class="hub-header">
             <h1 class="hub-title">GAME HUB</h1>
-            <button id="update-badge" class="update-badge" onclick="sfxClick(); openUpdateModal()">v3.5</button>
+            <button id="update-badge" class="update-badge" onclick="sfxClick(); openUpdateModal()">v3.6</button>
         </div>
         <button class="btn" onclick="sfxClick(); showScreen('mines-screen'); initMines();">💣 САПЕР</button>
         <button class="btn" onclick="sfxClick(); showScreen('tetris-screen'); initTetris();">🧱 ТЕТРИС</button>
         <button class="btn btn-gold" onclick="sfxClick(); openMahjongLevels()">🀄 МАДЖОНГ</button>
         <button class="btn btn-toxic" onclick="sfxClick(); openZombieLab()">🧪 ЗОМБИ-ЛАБА</button>
         <button class="btn btn-aim" onclick="sfxClick(); showScreen('aim-screen'); initAim();">🎯 CYBER AIM</button>
+        <button class="btn btn-duel" onclick="sfxClick(); openDuels('incoming')">
+            ⚔️ ДУЭЛИ <span id="duels-incoming-badge" class="duel-badge-count" style="display:none;">0</span>
+        </button>
         <button class="btn btn-shop" onclick="sfxClick(); openShop('tetris')">🛒 МАГАЗИН</button>
         <button class="btn btn-gold" onclick="sfxClick(); openLeaderboard('mines')">🏆 ЛИДЕРЫ</button>
         <button class="btn" style="border-color: #94a3b8;" onclick="sfxClick(); openSettings('style')">⚙️ НАСТРОЙКИ</button>
+    </div>
+
+    <!-- ОНЛАЙН-ДУЭЛИ 1 НА 1 -->
+    <div id="duels-screen" class="screen">
+        <div class="top-bar">
+            <button class="btn btn-sm" onclick="sfxClick(); backToMenu()">⬅ Меню</button>
+            <h3 style="margin:0; color:#fb7185;">⚔️ ДУЭЛИ</h3>
+            <button class="btn btn-sm" onclick="sfxClick(); renderDuelsTab(); syncDuelsAndPayouts();" title="Обновить">↻</button>
+        </div>
+
+        <div class="settings-tabs">
+            <div id="dueltab-incoming" class="stab-btn active" onclick="switchDuelTab('incoming')">📥 Вызовы</div>
+            <div id="dueltab-create" class="stab-btn" onclick="switchDuelTab('create')">🎯 Вызвать</div>
+            <div id="dueltab-history" class="stab-btn" onclick="switchDuelTab('history')">📜 История</div>
+        </div>
+
+        <div id="duels-body" class="lb-list"></div>
     </div>
 
     <!-- CYBER AIM (АИМ-ТРЕНАЖЁР) -->
@@ -336,6 +361,21 @@
         </div>
     </div>
 
+    <!-- МОДАЛЬНОЕ ОКНО: ИТОГ ДУЭЛИ -->
+    <div id="duel-result-overlay" class="modal-overlay">
+        <div class="victory-rays"></div>
+        <div class="victory-card" style="border-color:#fb7185;">
+            <div class="victory-trophy" id="duel-res-icon">⚔️</div>
+            <div class="victory-title" id="duel-res-title">ДУЭЛЬ ЗАВЕРШЕНА</div>
+            <div class="victory-sub" id="duel-res-sub">Результат</div>
+            <div class="victory-aura" id="duel-res-badge">Ставка</div>
+            <div class="victory-actions">
+                <button class="btn btn-green" onclick="sfxClick(); closeDuelResultOverlay()">⚔️ К СПИСКУ ДУЭЛЕЙ</button>
+                <button class="btn btn-sm" onclick="sfxClick(); backToMenu()">🏠 В ГЛАВНОЕ МЕНЮ</button>
+            </div>
+        </div>
+    </div>
+
     <!-- МОДАЛЬНОЕ ОКНО: CYBER AIM -->
     <div id="aim-result-overlay" class="modal-overlay">
         <div class="victory-rays"></div>
@@ -409,7 +449,7 @@
     <div id="update-modal" class="modal-overlay">
         <div class="victory-card" style="animation: victorySlam 0.35s ease; border-color: var(--accent);">
             <div style="font-size: 2.8rem; line-height: 1;">🚀</div>
-            <div class="victory-title" id="update-modal-title" style="font-size: 1.5rem;">ОБНОВЛЕНИЕ v3.5</div>
+            <div class="victory-title" id="update-modal-title" style="font-size: 1.5rem;">ОБНОВЛЕНИЕ v3.6</div>
             <ul class="changelog-list" id="changelog-list"></ul>
             <button class="btn btn-green" style="width: 100%;" onclick="sfxClick(); closeUpdateModal()">🔥 КРУТО!</button>
         </div>
@@ -425,18 +465,15 @@
             <div class="victory-aura" id="ban-reason-badge">Причина: Использование читов / автокликера</div>
         </div>
     </div>
+
     <script>
         const v = Date.now();
         [
-            'core.js', 'audio.js', 'fx.js', 'shop.js', 'social.js',
+            'core.js', 'audio.js', 'fx.js', 'shop.js', 'social.js', 'duels.js',
             'zlab.js', 'mines.js', 'tetris.js', 'mahjong.js', 'aim.js'
         ].forEach(file => {
             document.write(`<script src="${file}?v=${v}"><\/script>`);
         });
     </script>
-</body>
-</html>
-
-    
 </body>
 </html>
