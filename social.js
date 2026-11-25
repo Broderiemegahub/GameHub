@@ -1,15 +1,16 @@
 // ==================== СИСТЕМА БАНА, РЕКОРДЫ И АДМИН-ПАНЕЛЬ ====================
 function getLocalBan() {
+    migrateLegacyKey('gameHubBanned');
     try {
-        const raw = localStorage.getItem('gameHubBanned');
+        const raw = localStorage.getItem(userKey('gameHubBanned'));
         return raw ? JSON.parse(raw) : null;
     } catch { return null; }
 }
 
 function setLocalBan(data) {
     try {
-        if (data) localStorage.setItem('gameHubBanned', JSON.stringify(data));
-        else localStorage.removeItem('gameHubBanned');
+        if (data) localStorage.setItem(userKey('gameHubBanned'), JSON.stringify(data));
+        else localStorage.removeItem(userKey('gameHubBanned'));
     } catch {}
 }
 
@@ -113,7 +114,7 @@ async function checkBanStatus(manual = false) {
             if (manual && btn) btn.innerText = '⛔ Бан подтверждён';
         } else {
             clearLocalBanScreen();
-            syncGemsToCloud();
+            if (typeof pullCloudSave === 'function') await pullCloudSave();
         }
     } catch {
         if (manual && btn) btn.innerText = '⚠️ Нет связи с базой (включи VPN)';
@@ -130,20 +131,32 @@ let hubRecords = loadHubRecords();
 let currentLbTab = 'mines';
 
 function loadHubRecords() {
+    migrateLegacyKey('gameHubRecords');
     let data = { mines: null, tetris: 0, zlab: 0, aim: 0 };
     try {
-        const raw = localStorage.getItem('gameHubRecords');
+        const raw = localStorage.getItem(userKey('gameHubRecords'));
         if (raw) data = { ...data, ...JSON.parse(raw) };
     } catch {}
     try {
-        const zSave = JSON.parse(localStorage.getItem('zombieLabSave') || 'null');
+        const zSave = JSON.parse(localStorage.getItem(userKey('zombieLabSave')) || 'null');
         if (zSave && zSave.total > data.zlab) data.zlab = Math.floor(zSave.total);
     } catch {}
     return data;
 }
 
+function applyRemoteRecords(remoteRecs) {
+    hubRecords = {
+        mines: remoteRecs.mines ?? null,
+        tetris: Number(remoteRecs.tetris) || 0,
+        zlab: Number(remoteRecs.zlab) || 0,
+        aim: Number(remoteRecs.aim) || 0
+    };
+    try { localStorage.setItem(userKey('gameHubRecords'), JSON.stringify(hubRecords)); } catch {}
+}
+
 function saveHubRecords() {
-    try { localStorage.setItem('gameHubRecords', JSON.stringify(hubRecords)); } catch {}
+    try { localStorage.setItem(userKey('gameHubRecords'), JSON.stringify(hubRecords)); } catch {}
+    scheduleCloudSave();
 }
 
 function pushScoreToCloud(game, val) {
@@ -173,7 +186,7 @@ function syncExistingRecords() {
     if (hubRecords.zlab > 0) pushScoreToCloud('zlab', hubRecords.zlab);
     if (hubRecords.aim > 0) pushScoreToCloud('aim', hubRecords.aim);
 }
-setTimeout(syncExistingRecords, 2000);
+setTimeout(syncExistingRecords, 2500);
 
 function updateRecord(game, val) {
     if (isUserBanned) return false;
@@ -319,13 +332,14 @@ async function switchLbTab(tab, silent = false) {
 
 // ==================== АДМИН-ПАНЕЛЬ ====================
 function isAdminAuthed() {
-    try { return localStorage.getItem('gameHubAdminPin') === ADMIN_PIN; } catch { return false; }
+    migrateLegacyKey('gameHubAdminPin');
+    try { return localStorage.getItem(userKey('gameHubAdminPin')) === ADMIN_PIN; } catch { return false; }
 }
 function getAdminFails() {
-    try { return parseInt(localStorage.getItem('gameHubAdminFails') || '0', 10) || 0; } catch { return 0; }
+    try { return parseInt(localStorage.getItem(userKey('gameHubAdminFails')) || '0', 10) || 0; } catch { return 0; }
 }
 function setAdminFails(cnt) {
-    try { localStorage.setItem('gameHubAdminFails', String(cnt)); } catch {}
+    try { localStorage.setItem(userKey('gameHubAdminFails'), String(cnt)); } catch {}
 }
 
 function openAdminPanel() {
@@ -353,7 +367,7 @@ function openAdminPanel() {
         }
 
         setAdminFails(0);
-        try { localStorage.setItem('gameHubAdminPin', ADMIN_PIN); } catch {}
+        try { localStorage.setItem(userKey('gameHubAdminPin'), ADMIN_PIN); } catch {}
     }
 
     sfxClick();
