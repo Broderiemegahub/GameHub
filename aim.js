@@ -14,6 +14,12 @@ let aimRafId = null;
 let aimTargets = [];
 let aimNextId = 1;
 
+function getAimRng() {
+    return (typeof activeDuel !== 'undefined' && activeDuel && activeDuel.game === 'aim' && typeof duelRng === 'function')
+        ? duelRng
+        : Math.random;
+}
+
 function stopAim() {
     aimActive = false;
     aimStarted = false;
@@ -104,10 +110,11 @@ function spawnAimTarget() {
     if (!aimActive || !aimStarted || !aimArena) return;
     if (aimTargets.length >= 4) return;
 
+    const rng = getAimRng();
     const w = aimArena.clientWidth || 300;
     const h = aimArena.clientHeight || 380;
 
-    const roll = Math.random();
+    const roll = rng();
     let type = 'normal';
     let size = 48;
     let life = 1.75;
@@ -131,19 +138,18 @@ function spawnAimTarget() {
     }
 
     const pad = size / 2 + 10;
-    let x = pad + Math.random() * Math.max(10, w - pad * 2);
-    let y = pad + Math.random() * Math.max(10, h - pad * 2);
+    let x = pad + rng() * Math.max(10, w - pad * 2);
+    let y = pad + rng() * Math.max(10, h - pad * 2);
 
-    // Не спавним прямо поверх другой мишени
     for (let attempt = 0; attempt < 6; attempt++) {
         const tooClose = aimTargets.some(t => Math.hypot(t.x - x, t.y - y) < 58);
         if (!tooClose) break;
-        x = pad + Math.random() * Math.max(10, w - pad * 2);
-        y = pad + Math.random() * Math.max(10, h - pad * 2);
+        x = pad + rng() * Math.max(10, w - pad * 2);
+        y = pad + rng() * Math.max(10, h - pad * 2);
     }
 
-    const angle = Math.random() * Math.PI * 2;
-    const speed = type === 'moving' ? (95 + Math.random() * 65) : 0;
+    const angle = rng() * Math.PI * 2;
+    const speed = type === 'moving' ? (95 + rng() * 65) : 0;
 
     const el = document.createElement('div');
     el.className = `aim-target is-${type}`;
@@ -253,7 +259,6 @@ if (aimArena) {
         const cy = e.clientY || window.innerHeight / 2;
 
         if (!targetEl) {
-            // Промах мимо мишени
             aimCombo = 1;
             if (typeof ensureAudio === 'function' && typeof playTone === 'function') {
                 ensureAudio();
@@ -323,6 +328,11 @@ function finishAimRound() {
     const acc = aimClicks > 0 ? Math.round((aimHits / aimClicks) * 100) : 0;
     const accBonus = (acc >= 75 && aimScore > 0) ? Math.round(aimScore * (acc / 250)) : 0;
     const finalScore = aimScore + accBonus;
+
+    if (typeof activeDuel !== 'undefined' && activeDuel && activeDuel.game === 'aim') {
+        setTimeout(() => finishDuelAttempt(finalScore, false), 300);
+        return;
+    }
 
     sfxVictory();
     doVibrate([60, 40, 120]);
