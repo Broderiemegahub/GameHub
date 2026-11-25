@@ -1,5 +1,15 @@
 // ==================== ЭКОНОМИКА, ЕЖЕДНЕВНЫЙ БОНУС И МАГАЗИН ====================
 const SHOP_CATALOG = [
+    // Сапёр: темы поля и метки флагов
+    { id: 'mskin_default', cat: 'mines', icon: '💣', name: 'Классический кибер',     desc: 'Стандартные тёмные клетки поля', price: 0, type: 'mines_theme' },
+    { id: 'mskin_matrix',  cat: 'mines', icon: '🟩', name: 'Хакерский терминал',     desc: 'Изумрудные клетки в стиле Матрицы', price: 500, type: 'mines_theme' },
+    { id: 'mskin_gold',    cat: 'mines', icon: '🟨', name: 'Золотой бункер',         desc: 'Роскошные золотые плитки с бликом', price: 900, type: 'mines_theme' },
+    { id: 'mskin_magma',   cat: 'mines', icon: '🌋', name: 'Вулканический обсидиан', desc: 'Тёмный камень с огненной обводкой', price: 1400, type: 'mines_theme' },
+    { id: 'mflag_default', cat: 'mines', icon: '🚩', name: 'Красный флаг',           desc: 'Классический флажок 🚩 для мин', price: 0, type: 'mines_flag', flagIcon: '🚩' },
+    { id: 'mflag_skull',   cat: 'mines', icon: '☠️', name: 'Метка Череп',            desc: 'Ставит ☠️ вместо обычного флага', price: 400, type: 'mines_flag', flagIcon: '☠️' },
+    { id: 'mflag_radio',   cat: 'mines', icon: '☢️', name: 'Знак Радиации',          desc: 'Метка биоугрозы ☢️ на опасных клетках', price: 750, type: 'mines_flag', flagIcon: '☢️' },
+    { id: 'mflag_crown',   cat: 'mines', icon: '👑', name: 'Королевская метка',      desc: 'Отмечает мины золотой короной 👑', price: 1200, type: 'mines_flag', flagIcon: '👑' },
+
     // Тетрис скины
     { id: 'tskin_default', cat: 'tetris', icon: '🟦', name: 'Классический неон', desc: 'Стандартная палитра блоков', price: 0, type: 'tetris_skin' },
     { id: 'tskin_gold',    cat: 'tetris', icon: '🟨', name: 'Золотые слитки',    desc: 'Роскошные золотые блоки с бликом', price: 450, type: 'tetris_skin' },
@@ -30,14 +40,16 @@ const SHOP_CATALOG = [
 ];
 
 let ecoState = loadEcoState();
-let currentShopTab = 'tetris';
+let currentShopTab = 'mines';
 
 function loadEcoState() {
     const def = {
         gems: 0,
         claimedIssuedGems: 0,
-        owned: ['tskin_default', 'mj_default', 'badge_none', 'glow_default'],
+        owned: ['mskin_default', 'mflag_default', 'tskin_default', 'mj_default', 'badge_none', 'glow_default'],
         equipped: {
+            mines_theme: 'mskin_default',
+            mines_flag: 'mflag_default',
             tetris_skin: 'tskin_default',
             mj_theme: 'mj_default',
             badge: 'badge_none',
@@ -66,6 +78,7 @@ function saveEcoState() {
     try { localStorage.setItem('gameHubEconomy', JSON.stringify(ecoState)); } catch {}
     updateGemsUI();
     applyMahjongTheme();
+    applyMinesTheme();
 }
 
 function getGems() {
@@ -90,6 +103,23 @@ function hasShopItem(id) {
 
 function getZLabBoostRemaining() {
     return Math.max(0, (ecoState.zBoostUntil || 0) - Date.now());
+}
+
+function getMinesFlagIcon() {
+    const id = ecoState.equipped.mines_flag || 'mflag_default';
+    const item = SHOP_CATALOG.find(x => x.id === id);
+    return item ? (item.flagIcon || '🚩') : '🚩';
+}
+
+function applyMinesTheme() {
+    const theme = ecoState.equipped.mines_theme || 'mskin_default';
+    document.body.classList.remove('mines-theme-matrix', 'mines-theme-gold', 'mines-theme-magma');
+    if (theme === 'mskin_matrix') document.body.classList.add('mines-theme-matrix');
+    else if (theme === 'mskin_gold') document.body.classList.add('mines-theme-gold');
+    else if (theme === 'mskin_magma') document.body.classList.add('mines-theme-magma');
+
+    const flagHeader = document.getElementById('m-flag-icon');
+    if (flagHeader) flagHeader.innerText = getMinesFlagIcon();
 }
 
 function getTetrisColors() {
@@ -180,9 +210,12 @@ function updateGemsUI() {
     updateDailyBonusUI();
 }
 
-function openShop(tab = 'tetris') {
+function openShop(tab = 'mines') {
     if (isUserBanned) return;
-    if (tab === 'topup' && !TOPUP_ENABLED) tab = 'tetris';
+    if (typeof activeDuel !== 'undefined' && activeDuel) {
+        if (!abortActiveDuel()) return;
+    }
+    if (tab === 'topup' && !TOPUP_ENABLED) tab = 'mines';
     showScreen('shop-screen');
     updateGemsUI();
     const topupTab = document.getElementById('shoptab-topup');
@@ -204,7 +237,7 @@ function switchShopTab(tab, silent = false) {
     }
     if (!silent) sfxClick();
     currentShopTab = tab;
-    ['tetris', 'mahjong', 'profile', 'boosts', 'topup'].forEach(t => {
+    ['mines', 'tetris', 'mahjong', 'profile', 'boosts', 'topup'].forEach(t => {
         const el = document.getElementById('shoptab-' + t);
         if (el) el.classList.toggle('active', t === tab);
     });
@@ -278,7 +311,7 @@ function renderShopItems() {
 
     items.forEach(item => {
         const isOwned = ecoState.owned.includes(item.id);
-        const isEquippable = ['tetris_skin', 'mj_theme', 'badge', 'lb_glow'].includes(item.type);
+        const isEquippable = ['mines_theme', 'mines_flag', 'tetris_skin', 'mj_theme', 'badge', 'lb_glow'].includes(item.type);
         const isEquipped = isEquippable && ecoState.equipped[item.type] === item.id;
 
         const card = document.createElement('div');
@@ -322,7 +355,7 @@ function buyOrEquipShopItem(id) {
     if (!item) return;
 
     const isOwned = ecoState.owned.includes(item.id);
-    const isEquippable = ['tetris_skin', 'mj_theme', 'badge', 'lb_glow'].includes(item.type);
+    const isEquippable = ['mines_theme', 'mines_flag', 'tetris_skin', 'mj_theme', 'badge', 'lb_glow'].includes(item.type);
 
     if (isOwned && item.type !== 'consumable') {
         if (isEquippable) {
@@ -440,6 +473,7 @@ function setupVictoryObservers() {
 }
 
 applyMahjongTheme();
+applyMinesTheme();
 initTgProfile();
 syncGemsToCloud();
 setupVictoryObservers();
