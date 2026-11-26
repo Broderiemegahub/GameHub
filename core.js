@@ -7,8 +7,8 @@ const VIP_GEM_MULT = 2;      // Множитель гемов за игры дл
 const TOPUP_ENABLED = true;  // Вкладка доната «💎 Курс» открыта
 
 // Впиши сюда свои реквизиты для перевода на карту / СБП:
-const PAY_CARD_INFO = 'СБП: =7(937)954-18-20';
-const DONATE_URL = '';       // Необязательно: прямая ссылка на перевод (Т-Банк / Сбер / DonationAlerts)
+const PAY_CARD_INFO = 'хахахааха лол не дам пока номер карты';
+const DONATE_URL = '';       // Необязательно: прямая ссылка на перевод
 
 const VIP_PLANS = [
     { id: 'vip_7d',   days: 7,  priceRub: 69,  icon: '⏳', title: 'VIP на 7 дней',  badge: 'Неделя' },
@@ -16,13 +16,23 @@ const VIP_PLANS = [
     { id: 'vip_perm', days: 0,  priceRub: 499, icon: '♾️', title: 'VIP НАВСЕГДА',   badge: 'Навсегда' }
 ];
 
+async function fetchWithTimeout(url, options = {}, timeoutMs = 8000) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+        return await fetch(url, { ...options, signal: controller.signal });
+    } finally {
+        clearTimeout(timer);
+    }
+}
+
 // ==================== СИСТЕМА ОБНОВЛЕНИЙ ====================
-const APP_VERSION = '2.8';
+const APP_VERSION = '2.9';
 const CHANGELOG = [
+    '♟️ Шахматы: игра против бота (3 уровня), на двоих и пошаговые онлайн-партии в Дуэлях',
+    '🛒 Скины шахматных досок, эффекты взятия фигур и аксессуары в Магазине',
     '💳 Пополнение кристаллов и покупка VIP переводом на карту / СБП',
-    '👑 VIP-статус (7 дней — 69 ₽, 30 дней — 249 ₽, Навсегда — 499 ₽): ×2 гемов, темы, музыка и корона в топе',
-    '☁️ Полная облачная синхронизация между устройствами',
-    '⚔️ Онлайн-дуэли 1 на 1 по общему Seed'
+    '🛡️ Защита облачного баланса от сброса при обрыве сети'
 ];
 
 function initUpdateBadge() {
@@ -261,7 +271,7 @@ async function submitRubPaymentRequest() {
     }
 
     try {
-        const res = await fetch(`${WORKER_URL}/request-donate`, {
+        const res = await fetchWithTimeout(`${WORKER_URL}/request-donate`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -274,7 +284,7 @@ async function submitRubPaymentRequest() {
                 gems: currentRubOrder.gems || 0,
                 days: currentRubOrder.days || 0
             })
-        });
+        }, 10000);
         const data = await res.json();
         if (!data.ok) throw new Error(data.error || 'Server error');
 
@@ -330,11 +340,11 @@ async function pushCloudSaveNow(tsOverride = null) {
     };
 
     try {
-        await fetch(`${baseUrl}/saves/${myPlayerId}.json`, {
+        await fetchWithTimeout(`${baseUrl}/saves/${myPlayerId}.json`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
-        });
+        }, 8000);
     } catch {}
 }
 
@@ -346,7 +356,7 @@ async function pullCloudSave() {
     }
 
     try {
-        const res = await fetch(`${baseUrl}/saves/${myPlayerId}.json?t=${Date.now()}`, { cache: 'no-store' });
+        const res = await fetchWithTimeout(`${baseUrl}/saves/${myPlayerId}.json?t=${Date.now()}`, { cache: 'no-store' }, 8000);
         if (!res.ok) throw new Error('HTTP ' + res.status);
         const remote = await res.json();
         const localTs = getLocalSaveTimestamp();
@@ -375,11 +385,13 @@ async function pullCloudSave() {
             cloudSyncReady = true;
             await pushCloudSaveNow(localTs);
         }
-    } catch {}
 
-    cloudSyncReady = true;
-    if (typeof syncGemsToCloud === 'function') {
-        await syncGemsToCloud();
+        cloudSyncReady = true;
+        if (typeof syncGemsToCloud === 'function') {
+            await syncGemsToCloud();
+        }
+    } catch {
+        // При ошибке сети не перезаписываем облако локальным состоянием
     }
 }
 
@@ -455,9 +467,6 @@ function stopAllGames() {
     if (typeof victoryFxTimer !== 'undefined' && victoryFxTimer) {
         clearInterval(victoryFxTimer);
         victoryFxTimer = null;
-        const chessOverlay = document.getElementById('chess-result-overlay');
-    if (chessOverlay) chessOverlay.classList.remove('active');
-    if (typeof stopChess === 'function') stopChess();
     }
     document.getElementById('mj-victory-overlay').classList.remove('active');
     document.getElementById('mines-result-overlay').classList.remove('active');
@@ -466,11 +475,14 @@ function stopAllGames() {
     if (aimOverlay) aimOverlay.classList.remove('active');
     const duelOverlay = document.getElementById('duel-result-overlay');
     if (duelOverlay) duelOverlay.classList.remove('active');
+    const chessOverlay = document.getElementById('chess-result-overlay');
+    if (chessOverlay) chessOverlay.classList.remove('active');
 
     if (typeof stopMines === 'function') stopMines();
     if (typeof stopTetris === 'function') stopTetris();
     if (typeof stopZombieLab === 'function') stopZombieLab();
     if (typeof stopAim === 'function') stopAim();
+    if (typeof stopChess === 'function') stopChess();
 }
 
 function showScreen(id) {
