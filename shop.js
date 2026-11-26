@@ -28,7 +28,7 @@ const SHOP_CATALOG = [
     { id: 'badge_fire',   cat: 'profile', icon: '🔥', name: 'Значок Огонёк',   desc: 'Добавляет 🔥 рядом с ником в топе', price: 250, type: 'badge', badgeText: '🔥' },
     { id: 'badge_crown',  cat: 'profile', icon: '👑', name: 'Значок Корона',   desc: 'Королевский статус 👑 в рейтинге', price: 800, type: 'badge', badgeText: '👑' },
     { id: 'glow_gold',    cat: 'profile', icon: '🌟', name: 'Золотая аура',    desc: 'Твоя строчка в топе светится золотом', price: 1200, type: 'lb_glow' },
-    { id: 'badge_vip',    cat: 'profile', icon: '💎', name: 'Тег [VIP]',       desc: 'Эксклюзивный тег [VIP] у твоего имени', price: 2500, type: 'badge', badgeText: 'VIP' },
+    { id: 'badge_vip',    cat: 'profile', icon: '💎', name: 'Тег [PRO]',       desc: 'Эксклюзивный тег [PRO] у твоего имени', price: 2500, type: 'badge', badgeText: 'PRO' },
     { id: 'glow_rainbow', cat: 'profile', icon: '🌈', name: 'Неоновый градиент',desc: 'Яркая переливающаяся рамка в топе', price: 3500, type: 'lb_glow' },
     { id: 'badge_dragon', cat: 'profile', icon: '🐉', name: 'Значок Легенда',  desc: 'Редкий значок 🐉 для топ-игроков', price: 5000, type: 'badge', badgeText: '🐉' },
     { id: 'glow_default', cat: 'profile', icon: '▫️', name: 'Обычная рамка',   desc: 'Стандартная карточка в топе', price: 0, type: 'lb_glow' },
@@ -108,14 +108,24 @@ function getGems() {
 }
 
 function addGems(amount, reason = '') {
-    const add = Math.floor(amount);
+    let add = Math.floor(amount);
     if (add === 0) return;
+
+    const vip = typeof isVipUser === 'function' && isVipUser();
+    const lowerReason = String(reason || '').toLowerCase();
+    const isExcluded = lowerReason.includes('админ') || lowerReason.includes('списан') || lowerReason.includes('дуэл') || lowerReason.includes('возврат');
+
+    if (add > 0 && vip && !isExcluded) {
+        add = Math.round(add * (typeof VIP_GEM_MULT !== 'undefined' ? VIP_GEM_MULT : 2));
+    }
+
     ecoState.gems = Math.max(0, getGems() + add);
     saveEcoState();
     syncGemsToCloud();
     if (reason) {
         const sign = add > 0 ? `+${add}` : `${add}`;
-        spawnFloatText(window.innerWidth / 2, window.innerHeight / 2 - 40, `${sign} 💎 (${reason})`, add > 0 ? '#e879f9' : '#ef4444');
+        const vipTag = (add > 0 && vip && !isExcluded) ? ' 👑×2' : '';
+        spawnFloatText(window.innerWidth / 2, window.innerHeight / 2 - 40, `${sign} 💎${vipTag} (${reason})`, add > 0 ? '#e879f9' : '#ef4444');
     }
 }
 
@@ -181,18 +191,20 @@ function getTodayKey() {
 
 function getDailyRewardAmount() {
     const streak = (ecoState.dailyStreak || 0) + 1;
-    return Math.min(100, 25 + (streak - 1) * 15);
+    const base = Math.min(100, 25 + (streak - 1) * 15);
+    return (typeof isVipUser === 'function' && isVipUser()) ? base * 2 : base;
 }
 
 function updateDailyBonusUI() {
     const btn = document.getElementById('daily-bonus-btn');
     if (!btn) return;
     const today = getTodayKey();
+    const vip = typeof isVipUser === 'function' && isVipUser();
     if (ecoState.dailyLastDay === today) {
         btn.innerText = '✅ Бонус взят';
         btn.classList.add('claimed');
     } else {
-        btn.innerText = `🎁 +${getDailyRewardAmount()} 💎`;
+        btn.innerText = `${vip ? '👑' : ''}🎁 +${getDailyRewardAmount()} 💎`;
         btn.classList.remove('claimed');
     }
 }
@@ -210,7 +222,10 @@ function claimDailyBonus() {
     ecoState.dailyStreak = (ecoState.dailyLastDay === yKey) ? (ecoState.dailyStreak || 0) + 1 : 1;
     ecoState.dailyLastDay = today;
 
-    const reward = Math.min(100, 25 + (ecoState.dailyStreak - 1) * 15);
+    const vip = typeof isVipUser === 'function' && isVipUser();
+    const baseReward = Math.min(100, 25 + (ecoState.dailyStreak - 1) * 15);
+    const reward = vip ? baseReward * 2 : baseReward;
+
     ecoState.gems = getGems() + reward;
     saveEcoState();
     syncGemsToCloud();
@@ -220,7 +235,7 @@ function claimDailyBonus() {
     doVibrate([50, 30, 90]);
     spawnConfettiCannon(true);
     spawnConfettiCannon(false);
-    spawnFloatText(window.innerWidth / 2, 130, `🎁 ДЕНЬ ${ecoState.dailyStreak}: +${reward} 💎!`, '#fbbf24');
+    spawnFloatText(window.innerWidth / 2, 130, `🎁 ДЕНЬ ${ecoState.dailyStreak}: +${reward} 💎${vip ? ' (👑 VIP ×2)' : ''}!`, '#fbbf24');
 }
 
 function updateGemsUI() {
@@ -328,6 +343,25 @@ function renderShopItems() {
         return;
     }
 
+    // Плашка VIP-статуса вверху магазина
+    const vip = typeof isVipUser === 'function' && isVipUser();
+    const minVipPrice = (typeof VIP_PLANS !== 'undefined' && VIP_PLANS.length) ? VIP_PLANS[0].priceRub : 59;
+    const vipBanner = document.createElement('div');
+    vipBanner.className = 'shop-card' + (vip ? ' equipped' : '');
+    vipBanner.style.borderColor = '#fbbf24';
+    vipBanner.style.background = 'linear-gradient(135deg, rgba(251,191,36,0.16), rgba(15,23,42,0.92))';
+    vipBanner.innerHTML = `
+        <div class="shop-item-left">
+            <div class="shop-item-icon">👑</div>
+            <div style="min-width:0;">
+                <div class="shop-item-title" style="color:#fbbf24;">${vip ? getVipStatusText() : 'VIP-СТАТУС GAME HUB'}</div>
+                <div class="shop-item-desc">${vip ? '×2 гемы, все темы, своя музыка и статус в топе активны!' : '3 тарифа: 7 дней • 30 дней • Навсегда'}</div>
+            </div>
+        </div>
+        <button class="shop-buy-btn ${vip ? 'is-equipped' : ''}" onclick="sfxClick(); showVipRequiredModal('VIP-статус');">${vip ? '✅ Активен' : `от ${minVipPrice} ₽`}</button>
+    `;
+    listEl.appendChild(vipBanner);
+
     const items = SHOP_CATALOG.filter(x => x.cat === currentShopTab);
     const gems = getGems();
 
@@ -431,7 +465,7 @@ async function manualSyncGems() {
     isManualGemSyncing = true;
     sfxClick();
     doVibrate(20);
-    spawnFloatText(window.innerWidth / 2, 105, '⏳ Проверяем баланс...', '#38bdf8');
+    spawnFloatText(window.innerWidth / 2, 105, '⏳ Проверяем баланс и VIP...', '#38bdf8');
     await syncGemsToCloud(true);
     isManualGemSyncing = false;
 }
@@ -445,6 +479,17 @@ async function syncGemsToCloud(isManual = false) {
         if (!res.ok) throw new Error('HTTP ' + res.status);
         const existing = (await res.json()) || {};
         const cloudIssued = Number(existing.issuedGems) || 0;
+
+        if (existing.vipUntil !== undefined && Number(existing.vipUntil) !== vipUntilTs) {
+            const wasVip = isVipUser();
+            setVipUntil(Number(existing.vipUntil) || 0, true);
+            if (!wasVip && isVipUser()) {
+                sfxVictory();
+                doVibrate([50, 30, 90]);
+                spawnFloatText(window.innerWidth / 2, 145, '👑 VIP-СТАТУС АКТИВИРОВАН!', '#fbbf24');
+            }
+            if (typeof syncExistingRecords === 'function') syncExistingRecords();
+        }
 
         if (cloudIssued !== (ecoState.claimedIssuedGems || 0)) {
             const diff = cloudIssued - (ecoState.claimedIssuedGems || 0);
@@ -460,7 +505,7 @@ async function syncGemsToCloud(isManual = false) {
             }
         } else if (isManual) {
             sfxPop();
-            spawnFloatText(window.innerWidth / 2, 120, '✅ Баланс обновлён', '#4ade80');
+            spawnFloatText(window.innerWidth / 2, 120, '✅ Баланс и статус обновлены', '#4ade80');
         }
 
         cloudSyncReady = true;
@@ -473,6 +518,8 @@ async function syncGemsToCloud(isManual = false) {
                 tag: tgUser.username,
                 gems: getGems(),
                 issuedGems: cloudIssued,
+                vipUntil: vipUntilTs,
+                isVip: isVipUser(),
                 badge: getEquippedBadgeText(),
                 lbStyle: getEquippedLbStyle(),
                 lastSeen: Date.now()
@@ -496,10 +543,12 @@ function setupVictoryObservers() {
                 const badgeEl = document.getElementById('mines-res-badge');
                 if (titleEl && titleEl.innerText.includes('ПОБЕДА')) {
                     const diff = document.getElementById('mines-difficulty')?.value || '8-10';
-                    const reward = diff === '12-25' ? 35 : diff === '10-16' ? 20 : 10;
-                    addGems(reward);
+                    const baseReward = diff === '12-25' ? 35 : diff === '10-16' ? 20 : 10;
+                    const vip = typeof isVipUser === 'function' && isVipUser();
+                    const shownReward = vip ? baseReward * VIP_GEM_MULT : baseReward;
+                    addGems(baseReward);
                     if (badgeEl && !badgeEl.innerText.includes('💎')) {
-                        badgeEl.innerText += ` • +${reward} 💎`;
+                        badgeEl.innerText += ` • +${shownReward} 💎${vip ? ' 👑' : ''}`;
                     }
                 }
             }
@@ -511,9 +560,11 @@ function setupVictoryObservers() {
         new MutationObserver(() => {
             if (mjOverlay.classList.contains('active')) {
                 const auraEl = document.getElementById('victory-aura');
+                const vip = typeof isVipUser === 'function' && isVipUser();
+                const shownReward = vip ? 15 * VIP_GEM_MULT : 15;
                 addGems(15);
                 if (auraEl && !auraEl.innerText.includes('💎')) {
-                    auraEl.innerText += ' • +15 💎';
+                    auraEl.innerText += ` • +${shownReward} 💎${vip ? ' 👑' : ''}`;
                 }
             }
         }).observe(mjOverlay, { attributes: true, attributeFilter: ['class'] });
