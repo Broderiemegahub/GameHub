@@ -110,7 +110,47 @@ function renderLoop() {
 }
 requestAnimationFrame(renderLoop);
 
+function enforceVipThemeLock() {
+    const vip = typeof isVipUser === 'function' && isVipUser();
+    const pane = document.getElementById('pane-style');
+    if (pane) {
+        let banner = document.getElementById('vip-theme-banner');
+        if (!vip) {
+            if (!banner) {
+                banner = document.createElement('div');
+                banner.id = 'vip-theme-banner';
+                banner.style.cssText = 'background:rgba(251,191,36,0.14); border:1px solid #fbbf24; border-radius:12px; padding:10px; margin-bottom:10px; text-align:center; font-size:0.82rem; color:#fde68a; cursor:pointer;';
+                banner.innerHTML = '🔒 <b>Смена темы и эффектов доступна только в VIP</b><br><span style="font-size:0.74rem; color:#fbbf24;">Нажми, чтобы узнать подробнее</span>';
+                banner.onclick = () => { sfxClick(); if (typeof showVipRequiredModal === 'function') showVipRequiredModal('Изменение темы'); };
+                pane.insertBefore(banner, pane.firstChild);
+            }
+            banner.style.display = 'block';
+        } else if (banner) {
+            banner.style.display = 'none';
+        }
+    }
+
+    const neonBox = document.getElementById('neon-only-settings');
+    if (neonBox) neonBox.style.opacity = vip ? '1' : '0.6';
+
+    if (!vip) {
+        document.getElementById('bg-picker').value = '#0f172a';
+        document.getElementById('accent-picker').value = '#38bdf8';
+        document.getElementById('bg-effect-select').value = 'orbs';
+        document.getElementById('adhd-level').value = 'max';
+        document.documentElement.style.setProperty('--bg', '#0f172a');
+        document.documentElement.style.setProperty('--accent', '#38bdf8');
+        setStyleMode('neon', true);
+    }
+}
+
 function setStyleMode(mode, silent = false) {
+    if (!silent && typeof isVipUser === 'function' && !isVipUser()) {
+        sfxAlarm();
+        doVibrate(40);
+        if (typeof showVipRequiredModal === 'function') showVipRequiredModal('Изменение темы');
+        return;
+    }
     currentStyleMode = mode === 'minimal' ? 'minimal' : 'neon';
     document.body.classList.toggle('minimal-mode', currentStyleMode === 'minimal');
     document.getElementById('style-neon').classList.toggle('active', currentStyleMode === 'neon');
@@ -125,6 +165,12 @@ function setStyleMode(mode, silent = false) {
 }
 
 function applyPreset(bg, accent) {
+    if (typeof isVipUser === 'function' && !isVipUser()) {
+        sfxAlarm();
+        doVibrate(40);
+        if (typeof showVipRequiredModal === 'function') showVipRequiredModal('Быстрые темы');
+        return;
+    }
     document.getElementById('bg-picker').value = bg;
     document.getElementById('accent-picker').value = accent;
     updateLobbyColors(); sfxPop();
@@ -133,6 +179,13 @@ function applyPreset(bg, accent) {
 }
 
 function updateLobbyColors() {
+    if (typeof isVipUser === 'function' && !isVipUser()) {
+        document.getElementById('bg-picker').value = '#0f172a';
+        document.getElementById('accent-picker').value = '#38bdf8';
+        sfxAlarm();
+        if (typeof showVipRequiredModal === 'function') showVipRequiredModal('Выбор своих цветов');
+        return;
+    }
     const bg = document.getElementById('bg-picker').value, accent = document.getElementById('accent-picker').value;
     document.documentElement.style.setProperty('--bg', bg);
     document.documentElement.style.setProperty('--accent', accent);
@@ -140,6 +193,13 @@ function updateLobbyColors() {
 }
 
 function saveLobbyPrefs() {
+    if (typeof isVipUser === 'function' && !isVipUser()) {
+        document.getElementById('bg-effect-select').value = 'orbs';
+        document.getElementById('adhd-level').value = 'max';
+        sfxAlarm();
+        if (typeof showVipRequiredModal === 'function') showVipRequiredModal('Настройка фона и эффектов');
+        return;
+    }
     try {
         localStorage.setItem('gameHubLobby', JSON.stringify({
             styleMode: currentStyleMode,
@@ -152,6 +212,10 @@ function saveLobbyPrefs() {
 }
 
 function loadLobbyPrefs() {
+    if (typeof isVipUser === 'function' && !isVipUser()) {
+        enforceVipThemeLock();
+        return;
+    }
     try {
         const saved = JSON.parse(localStorage.getItem('gameHubLobby') || 'null');
         if (!saved) return;
