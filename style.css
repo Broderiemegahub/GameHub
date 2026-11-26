@@ -948,6 +948,122 @@ body.mines-theme-magma .cell.revealed {
     background: #170808 !important;
     border-color: rgba(249, 115, 22, 0.25) !important;
 }
+/* ==================== ШАХМАТЫ (ДОСКИ, АНИМАЦИИ ВЗЯТИЯ, АКСЕССУАРЫ) ==================== */
+.chess-board {
+    width: min(92vw, 376px);
+    aspect-ratio: 1 / 1;
+    display: grid;
+    grid-template-columns: repeat(8, 1fr);
+    grid-template-rows: repeat(8, 1fr);
+    border: 2px solid var(--accent, #38bdf8);
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 0 22px rgba(56, 189, 248, 0.25);
+    margin: 6px auto;
+    user-select: none;
+}
+
+.chess-cell {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: clamp(1.5rem, 6.8vw, 2.05rem);
+    cursor: pointer;
+    transition: background 0.12s;
+}
+
+/* Скины досок */
+.chess-board.cboard_default .chess-cell.light { background: #1e293b; }
+.chess-board.cboard_default .chess-cell.dark  { background: #0f172a; }
+
+.chess-board.cboard_emerald { border-color: #4ade80; box-shadow: 0 0 22px rgba(74, 222, 128, 0.28); }
+.chess-board.cboard_emerald .chess-cell.light { background: #2d6a4f; }
+.chess-board.cboard_emerald .chess-cell.dark  { background: #1b4332; }
+
+.chess-board.cboard_marble { border-color: #cbd5e1; box-shadow: 0 0 22px rgba(226, 232, 240, 0.25); }
+.chess-board.cboard_marble .chess-cell.light { background: #475569; }
+.chess-board.cboard_marble .chess-cell.dark  { background: #1e293b; }
+
+.chess-board.cboard_gold { border-color: #fbbf24; box-shadow: 0 0 24px rgba(251, 191, 36, 0.35); }
+.chess-board.cboard_gold .chess-cell.light { background: #78350f; }
+.chess-board.cboard_gold .chess-cell.dark  { background: #271506; }
+
+.chess-board.cboard_cyber { border-color: #e879f9; box-shadow: 0 0 24px rgba(232, 121, 249, 0.35); }
+.chess-board.cboard_cyber .chess-cell.light { background: #3b0764; }
+.chess-board.cboard_cyber .chess-cell.dark  { background: #140826; }
+
+.chess-cell.selected { background: rgba(56, 189, 248, 0.45) !important; }
+.chess-cell.last-move { box-shadow: inset 0 0 0 2px rgba(251, 191, 36, 0.65); }
+.chess-cell.in-check { background: rgba(239, 68, 68, 0.6) !important; }
+
+.chess-cell.valid-move::after {
+    content: '';
+    width: 28%;
+    height: 28%;
+    border-radius: 50%;
+    background: rgba(74, 222, 128, 0.82);
+    box-shadow: 0 0 8px #4ade80;
+    pointer-events: none;
+}
+
+.chess-cell.valid-capture::after {
+    content: '';
+    position: absolute;
+    inset: 3px;
+    border-radius: 50%;
+    border: 3px solid rgba(244, 63, 94, 0.9);
+    pointer-events: none;
+}
+
+.chess-piece-w {
+    position: relative;
+    color: #f8fafc;
+    text-shadow: 0 0 8px rgba(56, 189, 248, 0.85), 0 2px 3px rgba(0,0,0,0.9);
+    line-height: 1;
+}
+
+.chess-piece-b {
+    position: relative;
+    color: #fb7185;
+    text-shadow: 0 0 8px rgba(244, 63, 94, 0.75), 0 2px 3px rgba(0,0,0,0.9);
+    line-height: 1;
+}
+
+/* Аксессуары фигур */
+.cacc_aura {
+    filter: drop-shadow(0 0 6px #38bdf8) drop-shadow(0 0 12px #e879f9);
+}
+
+.cacc_runes::before {
+    content: '';
+    position: absolute;
+    inset: -3px;
+    border-radius: 50%;
+    border: 1.5px dashed rgba(251, 191, 36, 0.75);
+    pointer-events: none;
+}
+
+.cacc_crown::after {
+    content: '👑';
+    position: absolute;
+    top: -9px;
+    right: -7px;
+    font-size: 0.62rem;
+    filter: drop-shadow(0 1px 2px #000);
+    pointer-events: none;
+}
+
+/* Вспышки клеток при взятии */
+@keyframes capFlashAnim {
+    0%   { transform: scale(1.18); filter: brightness(2.2); }
+    100% { transform: scale(1); filter: brightness(1); }
+}
+
+.cap-flash-lightning { background: #38bdf8 !important; animation: capFlashAnim 0.35s ease-out; }
+.cap-flash-fire      { background: #f97316 !important; animation: capFlashAnim 0.35s ease-out; }
+.cap-flash-ice       { background: #bae6fd !important; animation: capFlashAnim 0.35s ease-out; }
+.cap-flash-explosion { background: #4ade80 !important; animation: capFlashAnim 0.42s ease-out; }
 
 
 
