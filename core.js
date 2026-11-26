@@ -1,10 +1,14 @@
-// ==================== НАСТРОЙКИ БАЗЫ, КУРСА, VIP И АДМИНКИ ====================
+// ==================== НАСТРОЙКИ БАЗЫ, КУРСА, VIP И ДОНАТА ====================
 const FIREBASE_URL = 'https://gamehubonline-7b970-default-rtdb.firebaseio.com';
+const WORKER_URL = 'https://lucky-rice-b9b0.kgerasimov04.workers.dev';
 const ADMIN_PIN = '2010042Ki';
 const GEM_RATE_RUB = 10;     // Курс валюты: 1 ₽ = 10 💎
 const VIP_GEM_MULT = 2;      // Множитель гемов за игры для VIP (×2)
-const TOPUP_ENABLED = false; // false = вкладка «Курс» закрыта на замок; true = открыта
-const DONATE_URL = '';       // Сюда позже вставишь ссылку на оплату
+const TOPUP_ENABLED = true;  // Вкладка доната «💎 Курс» открыта
+
+// Впиши сюда свои реквизиты для перевода на карту / СБП:
+const PAY_CARD_INFO = 'СБП: =7(937)954-18-20';
+const DONATE_URL = '';       // Необязательно: прямая ссылка на перевод (Т-Банк / Сбер / DonationAlerts)
 
 const VIP_PLANS = [
     { id: 'vip_7d',   days: 7,  priceRub: 69,  icon: '⏳', title: 'VIP на 7 дней',  badge: 'Неделя' },
@@ -13,11 +17,11 @@ const VIP_PLANS = [
 ];
 
 // ==================== СИСТЕМА ОБНОВЛЕНИЙ ====================
-const APP_VERSION = '2.7';
+const APP_VERSION = '2.8';
 const CHANGELOG = [
-    '👑 VIP-статус (7 дней, 30 дней, Навсегда): ×2 гемов за игры и бонус дня, тег в топе, темы и своя музыка',
-    '☁️ Полная облачная синхронизация: гемы, VIP, скины, рекорды и Зомби-лаба переносятся между устройствами',
-    '👤 Разделение аккаунтов: разные аккаунты Telegram на одном телефоне больше не делят общий баланс',
+    '💳 Пополнение кристаллов и покупка VIP переводом на карту / СБП',
+    '👑 VIP-статус (7 дней — 69 ₽, 30 дней — 249 ₽, Навсегда — 499 ₽): ×2 гемов, темы, музыка и корона в топе',
+    '☁️ Полная облачная синхронизация между устройствами',
     '⚔️ Онлайн-дуэли 1 на 1 по общему Seed'
 ];
 
@@ -135,11 +139,11 @@ function showVipRequiredModal(featureName = '') {
         modal.id = 'vip-info-modal';
         modal.className = 'modal-overlay';
         modal.innerHTML = `
-            <div class="victory-card" style="border-color:#fbbf24; max-width:350px; padding:16px;">
-                <div style="font-size:2.3rem; line-height:1;">👑</div>
+            <div class="victory-card" style="border-color:#fbbf24; max-width:355px; padding:16px;">
+                <div style="font-size:2.2rem; line-height:1;">👑</div>
                 <div class="victory-title" style="color:#fbbf24; font-size:1.3rem;">VIP-ДОСТУП</div>
                 <div id="vip-modal-reason" class="victory-sub" style="color:#fde68a; font-weight:700;"></div>
-                <ul class="changelog-list" style="text-align:left; font-size:0.8rem; margin:8px 0;">
+                <ul class="changelog-list" style="text-align:left; font-size:0.78rem; margin:8px 0;">
                     <li>💎 <b>×${VIP_GEM_MULT} кристаллов</b> за победы в играх</li>
                     <li>🎁 <b>×2 ежедневный бонус</b> (до 200 💎 в день)</li>
                     <li>🎨 <b>Все темы, цвета и эффекты</b> интерфейса</li>
@@ -147,8 +151,8 @@ function showVipRequiredModal(featureName = '') {
                     <li>👑 <b>Золотой статус [VIP]</b> в таблице лидеров</li>
                 </ul>
                 <div id="vip-modal-plans" style="display:flex; flex-direction:column; gap:6px; width:100%; margin:6px 0 8px;"></div>
-                <div id="vip-modal-footer" style="font-size:0.75rem; color:#cbd5e1; margin-bottom:10px;"></div>
-                <button class="btn btn-green" style="width:100%;" onclick="sfxClick(); document.getElementById('vip-info-modal').classList.remove('active');">ПОНЯТНО</button>
+                <div id="vip-modal-footer" style="font-size:0.74rem; color:#cbd5e1; margin-bottom:10px;"></div>
+                <button class="btn btn-sm" style="width:100%;" onclick="sfxClick(); document.getElementById('vip-info-modal').classList.remove('active');">ЗАКРЫТЬ</button>
             </div>
         `;
         document.body.appendChild(modal);
@@ -169,19 +173,124 @@ function showVipRequiredModal(featureName = '') {
                     <div style="font-size:0.84rem; font-weight:800; color:#fff;">${p.icon} ${p.title}</div>
                     <div style="font-size:0.7rem; color:#fde68a;">${p.badge}</div>
                 </div>
-                <div style="font-size:0.88rem; font-weight:900; color:#fbbf24; background:rgba(15,23,42,0.8); padding:4px 9px; border-radius:8px; border:1px solid #fbbf24;">
+                <button class="btn btn-xs" style="background:linear-gradient(135deg,#fbbf24,#f59e0b); color:#0f172a; border:none; font-weight:900; padding:6px 11px;" onclick="sfxClick(); document.getElementById('vip-info-modal').classList.remove('active'); openRubPaymentModal({ type: 'vip', title: '${p.title}', rub: ${p.priceRub}, days: ${p.days} });">
                     ${p.priceRub} ₽
-                </div>
+                </button>
             </div>
         `).join('');
     }
 
     if (footerEl) {
         footerEl.innerHTML = isVipUser()
-            ? `<b style="color:#4ade80;">✅ У тебя уже активен ${getVipStatusText()}!</b>`
-            : `Твой ID для активации: <code>${myPlayerId}</code>`;
+            ? `<b style="color:#4ade80;">✅ Активен: ${getVipStatusText()}</b> (можно продлить)`
+            : `Оплата переводом на карту • Твой ID: <code>${myPlayerId}</code>`;
     }
     modal.classList.add('active');
+}
+
+// ==================== ОКНО ОПЛАТЫ РУБЛЯМИ НА КАРТУ ====================
+let currentRubOrder = null;
+let isSendingDonateReq = false;
+
+function copyTextSafe(text, label) {
+    sfxPop();
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).catch(() => {});
+    }
+    spawnFloatText(window.innerWidth / 2, window.innerHeight / 2, `📋 ${label}`, '#4ade80');
+}
+
+function openRubPaymentModal(order) {
+    currentRubOrder = order;
+    let modal = document.getElementById('rub-pay-modal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'rub-pay-modal';
+        modal.className = 'modal-overlay';
+        modal.innerHTML = `
+            <div class="victory-card" style="border-color:#4ade80; max-width:355px; padding:16px;">
+                <div style="font-size:2rem; line-height:1;">💳</div>
+                <div class="victory-title" style="color:#4ade80; font-size:1.2rem;">ОПЛАТА ПЕРЕВОДОМ</div>
+                <div id="rub-pay-summary" style="font-size:0.9rem; font-weight:800; color:#fff; margin:6px 0;"></div>
+                <div style="background:rgba(15,23,42,0.85); border:1px solid rgba(148,163,184,0.35); border-radius:10px; padding:10px; width:100%; text-align:left; font-size:0.78rem; color:#cbd5e1; margin-bottom:8px;">
+                    <div style="color:#94a3b8; font-size:0.7rem; margin-bottom:3px;">1. Переведи точную сумму по реквизитам:</div>
+                    <div style="display:flex; align-items:center; justify-content:space-between; gap:6px;">
+                        <b id="rub-pay-card" style="color:#fbbf24; word-break:break-word;"></b>
+                        <button class="btn btn-xs" style="border-color:#fbbf24; color:#fbbf24; flex-shrink:0;" onclick="copyTextSafe(PAY_CARD_INFO, 'Реквизиты скопированы')">📋</button>
+                    </div>
+                    <div style="color:#94a3b8; font-size:0.7rem; margin:8px 0 3px;">2. В комментарии к переводу укажи свой ID:</div>
+                    <div style="display:flex; align-items:center; justify-content:space-between; gap:6px;">
+                        <code id="rub-pay-id" style="color:#38bdf8; font-weight:800;"></code>
+                        <button class="btn btn-xs" style="border-color:#38bdf8; color:#38bdf8; flex-shrink:0;" onclick="copyTextSafe(myPlayerId, 'ID скопирован')">📋</button>
+                    </div>
+                </div>
+                <div id="rub-pay-link-box" style="width:100%; margin-bottom:6px;"></div>
+                <button id="rub-pay-confirm-btn" class="btn btn-green" style="width:100%; margin-bottom:6px;" onclick="submitRubPaymentRequest()">✅ Я ОПЛАТИЛ</button>
+                <button class="btn btn-sm" style="width:100%;" onclick="sfxClick(); document.getElementById('rub-pay-modal').classList.remove('active');">ОТМЕНА</button>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    }
+
+    document.getElementById('rub-pay-summary').innerText = `${order.title} — ${order.rub} ₽`;
+    document.getElementById('rub-pay-card').innerText = PAY_CARD_INFO;
+    document.getElementById('rub-pay-id').innerText = myPlayerId;
+
+    const linkBox = document.getElementById('rub-pay-link-box');
+    if (DONATE_URL) {
+        linkBox.innerHTML = `<button class="btn btn-sm" style="width:100%; border-color:#38bdf8; color:#38bdf8;" onclick="sfxClick(); window.open('${DONATE_URL}', '_blank')">🔗 Перейти по ссылке оплаты</button>`;
+    } else {
+        linkBox.innerHTML = '';
+    }
+
+    const confirmBtn = document.getElementById('rub-pay-confirm-btn');
+    confirmBtn.disabled = false;
+    confirmBtn.innerText = '✅ Я ОПЛАТИЛ';
+    modal.classList.add('active');
+}
+
+async function submitRubPaymentRequest() {
+    if (!currentRubOrder || isSendingDonateReq) return;
+    isSendingDonateReq = true;
+    sfxClick();
+
+    const btn = document.getElementById('rub-pay-confirm-btn');
+    if (btn) {
+        btn.disabled = true;
+        btn.innerText = '⏳ Отправляем заявку...';
+    }
+
+    try {
+        const res = await fetch(`${WORKER_URL}/request-donate`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                playerId: myPlayerId,
+                name: tgUser.name,
+                tag: tgUser.username,
+                type: currentRubOrder.type,
+                title: currentRubOrder.title,
+                rub: currentRubOrder.rub,
+                gems: currentRubOrder.gems || 0,
+                days: currentRubOrder.days || 0
+            })
+        });
+        const data = await res.json();
+        if (!data.ok) throw new Error(data.error || 'Server error');
+
+        sfxVictory();
+        doVibrate([40, 30, 80]);
+        document.getElementById('rub-pay-modal').classList.remove('active');
+        alert('✅ Заявка отправлена администратору! Как только перевод проверится, VIP или гемы придут автоматически (нажми на баланс 💎 в меню, чтобы обновить).');
+    } catch {
+        sfxAlarm();
+        alert('⚠️ Не удалось отправить заявку (проверь интернет/VPN) и попробуй ещё раз.');
+        if (btn) {
+            btn.disabled = false;
+            btn.innerText = '✅ Я ОПЛАТИЛ';
+        }
+    }
+    isSendingDonateReq = false;
 }
 
 // ==================== ОБЛАЧНЫЙ СЕЙВ ====================
