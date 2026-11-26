@@ -1,1297 +1,643 @@
-// ==================== ШАХМАТЫ (БОТ 3 УРОВНЯ + НА ДВОИХ + ОНЛАЙН) ====================
-function injectChessStyles() {
-    if (document.getElementById('chess-auto-styles')) return;
-    const style = document.createElement('style');
-    style.id = 'chess-auto-styles';
-    style.textContent = `
-        #chess-screen .top-bar .btn { white-space: nowrap; }
-        .chess-board {
-            width: min(88vw, 360px);
-            height: min(88vw, 360px);
-            aspect-ratio: 1 / 1;
-            display: grid !important;
-            grid-template-columns: repeat(8, 1fr) !important;
-            grid-template-rows: repeat(8, 1fr) !important;
-            border: 2px solid var(--accent, #38bdf8);
-            border-radius: 12px;
-            overflow: hidden;
-            box-shadow: 0 0 22px rgba(56, 189, 248, 0.25);
-            margin: 6px auto;
-            user-select: none;
-            flex-shrink: 0;
-        }
-        .chess-cell {
-            position: relative;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: clamp(1.45rem, 6.2vw, 1.95rem);
-            cursor: pointer;
-            transition: background 0.12s;
-            overflow: hidden;
-        }
-        .chess-board.cboard_default .chess-cell.light { background: #1e293b; }
-        .chess-board.cboard_default .chess-cell.dark  { background: #0f172a; }
+// ==================== ЭКОНОМИКА, ЕЖЕДНЕВНЫЙ БОНУС И МАГАЗИН ====================
+const SHOP_CATALOG = [
+    // Сапёр: темы поля и метки флагов
+    { id: 'mskin_default', cat: 'mines', icon: '💣', name: 'Классический кибер',     desc: 'Стандартные тёмные клетки поля', price: 0, type: 'mines_theme' },
+    { id: 'mskin_matrix',  cat: 'mines', icon: '🟩', name: 'Хакерский терминал',     desc: 'Изумрудные клетки в стиле Матрицы', price: 500, type: 'mines_theme' },
+    { id: 'mskin_gold',    cat: 'mines', icon: '🟨', name: 'Золотой бункер',         desc: 'Роскошные золотые плитки с бликом', price: 900, type: 'mines_theme' },
+    { id: 'mskin_magma',   cat: 'mines', icon: '🌋', name: 'Вулканический обсидиан', desc: 'Тёмный камень с огненной обводкой', price: 1400, type: 'mines_theme' },
+    { id: 'mflag_default', cat: 'mines', icon: '🚩', name: 'Красный флаг',           desc: 'Классический флажок 🚩 для мин', price: 0, type: 'mines_flag', flagIcon: '🚩' },
+    { id: 'mflag_skull',   cat: 'mines', icon: '☠️', name: 'Метка Череп',            desc: 'Ставит ☠️ вместо обычного флага', price: 400, type: 'mines_flag', flagIcon: '☠️' },
+    { id: 'mflag_radio',   cat: 'mines', icon: '☢️', name: 'Знак Радиации',          desc: 'Метка биоугрозы ☢️ на опасных клетках', price: 750, type: 'mines_flag', flagIcon: '☢️' },
+    { id: 'mflag_crown',   cat: 'mines', icon: '👑', name: 'Королевская метка',      desc: 'Отмечает мины золотой короной 👑', price: 1200, type: 'mines_flag', flagIcon: '👑' },
 
-        .chess-board.cboard_emerald { border-color: #4ade80; box-shadow: 0 0 22px rgba(74, 222, 128, 0.28); }
-        .chess-board.cboard_emerald .chess-cell.light { background: #2d6a4f; }
-        .chess-board.cboard_emerald .chess-cell.dark  { background: #1b4332; }
+    // Тетрис скины
+    { id: 'tskin_default', cat: 'tetris', icon: '🟦', name: 'Классический неон', desc: 'Стандартная палитра блоков', price: 0, type: 'tetris_skin' },
+    { id: 'tskin_gold',    cat: 'tetris', icon: '🟨', name: 'Золотые слитки',    desc: 'Роскошные золотые блоки с бликом', price: 450, type: 'tetris_skin' },
+    { id: 'tskin_matrix',  cat: 'tetris', icon: '🟩', name: 'Код Матрицы',       desc: 'Кислотно-зелёный хакерский стиль', price: 700, type: 'tetris_skin' },
+    { id: 'tskin_cyber',   cat: 'tetris', icon: '🟪', name: 'Киберпанк 2077',    desc: 'Неоново-розовые и бирюзовые блоки', price: 1000, type: 'tetris_skin' },
+    { id: 'tskin_ice',     cat: 'tetris', icon: '❄️', name: 'Крио-лёд',          desc: 'Ледяные кристаллы с морозным оттенком', price: 1500, type: 'tetris_skin' },
 
-        .chess-board.cboard_marble { border-color: #cbd5e1; box-shadow: 0 0 22px rgba(226, 232, 240, 0.25); }
-        .chess-board.cboard_marble .chess-cell.light { background: #475569; }
-        .chess-board.cboard_marble .chess-cell.dark  { background: #1e293b; }
+    // Темы Маджонга
+    { id: 'mj_default', cat: 'mahjong', icon: '🀄', name: 'Классика',             desc: 'Светлые традиционные кости', price: 0, type: 'mj_theme' },
+    { id: 'mj_carbon',  cat: 'mahjong', icon: '⬛', name: 'Тёмный карбон',        desc: 'Строгие графитовые фишки с неоном', price: 500, type: 'mj_theme' },
+    { id: 'mj_jade',    cat: 'mahjong', icon: '🟢', name: 'Императорский нефрит', desc: 'Изумрудные фишки с золотым кантом', price: 850, type: 'mj_theme' },
+    { id: 'mj_royal',   cat: 'mahjong', icon: '🟥', name: 'Королевский рубин',    desc: 'Бордово-золотой премиум стиль', price: 1300, type: 'mj_theme' },
 
-        .chess-board.cboard_gold { border-color: #fbbf24; box-shadow: 0 0 24px rgba(251, 191, 36, 0.35); }
-        .chess-board.cboard_gold .chess-cell.light { background: #78350f; }
-        .chess-board.cboard_gold .chess-cell.dark  { background: #271506; }
+    // Шахматы: скины досок, анимации взятия и аксессуары фигур
+    { id: 'cboard_default', cat: 'chess', icon: '♟️', name: 'Доска: Кибер-ночь',      desc: 'Классическая тёмно-синяя доска', price: 0, type: 'chess_board' },
+    { id: 'cboard_emerald', cat: 'chess', icon: '🟩', name: 'Доска: Изумруд',         desc: 'Турнирная зелёно-кремовая клетка', price: 500, type: 'chess_board' },
+    { id: 'cboard_marble',  cat: 'chess', icon: '🏛️', name: 'Доска: Мрамор',          desc: 'Античный светло-графитовый камень', price: 900, type: 'chess_board' },
+    { id: 'cboard_gold',    cat: 'chess', icon: '🟨', name: 'Доска: Золотой дворец',  desc: 'Роскошные золотые и обсидиановые клетки', price: 1400, type: 'chess_board' },
+    { id: 'cboard_cyber',   cat: 'chess', icon: '🟪', name: 'Доска: Киберпанк',       desc: 'Неоновая фиолетово-бирюзовая арена', price: 1800, type: 'chess_board' },
 
-        .chess-board.cboard_cyber { border-color: #e879f9; box-shadow: 0 0 24px rgba(232, 121, 249, 0.35); }
-        .chess-board.cboard_cyber .chess-cell.light { background: #3b0764; }
-        .chess-board.cboard_cyber .chess-cell.dark  { background: #140826; }
+    { id: 'cfx_default',    cat: 'chess', icon: '💥', name: 'Взятие: Классика',       desc: 'Стандартные искры при съедении фигуры', price: 0, type: 'chess_fx' },
+    { id: 'cfx_lightning',  cat: 'chess', icon: '⚡', name: 'Взятие: Удар молнии',    desc: 'Электрический разряд ⚡ при взятии фигуры', price: 450, type: 'chess_fx' },
+    { id: 'cfx_fire',       cat: 'chess', icon: '🔥', name: 'Взятие: Огненный вихрь', desc: 'Вспышка пламени 🔥 на клетке противника', price: 800, type: 'chess_fx' },
+    { id: 'cfx_ice',        cat: 'chess', icon: '❄️', name: 'Взятие: Ледяной раскол', desc: 'Крио-осколки ❄️ и морозная вспышка', price: 1100, type: 'chess_fx' },
+    { id: 'cfx_explosion',  cat: 'chess', icon: '☢️', name: 'Взятие: Плазма-взрыв',   desc: 'Мощный взрыв с тряской экрана ☢️', price: 1600, type: 'chess_fx' },
 
-        .chess-cell.selected { background: rgba(56, 189, 248, 0.45) !important; }
-        .chess-cell.last-move { box-shadow: inset 0 0 0 2px rgba(251, 191, 36, 0.65); }
-        .chess-cell.in-check { background: rgba(239, 68, 68, 0.6) !important; }
+    { id: 'cacc_none',      cat: 'chess', icon: '▫️', name: 'Фигуры: Без аксессуаров',desc: 'Стандартный вид шахматных фигур', price: 0, type: 'chess_acc' },
+    { id: 'cacc_aura',      cat: 'chess', icon: '✨', name: 'Аксессуар: Неон-аура',   desc: 'Яркое двойное свечение вокруг всех фигур', price: 600, type: 'chess_acc' },
+    { id: 'cacc_runes',     cat: 'chess', icon: '🔮', name: 'Аксессуар: Боевые руны', desc: 'Магическое кольцо рун под каждой фигурой', price: 1200, type: 'chess_acc' },
+    { id: 'cacc_crown',     cat: 'chess', icon: '👑', name: 'Аксессуар: Короны',      desc: 'Золотая корона 👑 и венец над фигурами', price: 2000, type: 'chess_acc' },
 
-        .chess-cell.valid-move::after {
-            content: '';
-            width: 28%;
-            height: 28%;
-            border-radius: 50%;
-            background: rgba(74, 222, 128, 0.85);
-            box-shadow: 0 0 8px #4ade80;
-            pointer-events: none;
-        }
-        .chess-cell.valid-capture::after {
-            content: '';
-            position: absolute;
-            inset: 3px;
-            border-radius: 50%;
-            border: 3px solid rgba(244, 63, 94, 0.9);
-            pointer-events: none;
-        }
-        .chess-piece-w {
-            position: relative;
-            color: #ffffff;
-            text-shadow: 0 0 8px rgba(56, 189, 248, 0.95), 0 2px 3px rgba(0,0,0,0.95);
-            line-height: 1;
-        }
-        .chess-piece-b {
-            position: relative;
-            color: #fb7185;
-            text-shadow: 0 0 8px rgba(244, 63, 94, 0.85), 0 2px 3px rgba(0,0,0,0.95);
-            line-height: 1;
-        }
-        .cacc_aura {
-            filter: drop-shadow(0 0 6px #38bdf8) drop-shadow(0 0 12px #e879f9);
-        }
-        .cacc_runes::before {
-            content: '';
-            position: absolute;
-            inset: -3px;
-            border-radius: 50%;
-            border: 1.5px dashed rgba(251, 191, 36, 0.8);
-            pointer-events: none;
-        }
-        .cacc_crown::after {
-            content: '👑';
-            position: absolute;
-            top: -9px;
-            right: -7px;
-            font-size: 0.62rem;
-            filter: drop-shadow(0 1px 2px #000);
-            pointer-events: none;
-        }
-        @keyframes capFlashAnim {
-            0%   { transform: scale(1.18); filter: brightness(2.2); }
-            100% { transform: scale(1); filter: brightness(1); }
-        }
-        .cap-flash-lightning { background: #38bdf8 !important; animation: capFlashAnim 0.35s ease-out; }
-        .cap-flash-fire      { background: #f97316 !important; animation: capFlashAnim 0.35s ease-out; }
-        .cap-flash-ice       { background: #bae6fd !important; animation: capFlashAnim 0.35s ease-out; }
-        .cap-flash-explosion { background: #4ade80 !important; animation: capFlashAnim 0.42s ease-out; }
-    `;
-    document.head.appendChild(style);
-}
-injectChessStyles();
+    // Значки и подсветка в топе
+    { id: 'badge_none',   cat: 'profile', icon: '👤', name: 'Без значка',      desc: 'Обычное отображение имени', price: 0, type: 'badge', badgeText: '' },
+    { id: 'badge_fire',   cat: 'profile', icon: '🔥', name: 'Значок Огонёк',   desc: 'Добавляет 🔥 рядом с ником в топе', price: 250, type: 'badge', badgeText: '🔥' },
+    { id: 'badge_crown',  cat: 'profile', icon: '👑', name: 'Значок Корона',   desc: 'Королевский статус 👑 в рейтинге', price: 800, type: 'badge', badgeText: '👑' },
+    { id: 'glow_gold',    cat: 'profile', icon: '🌟', name: 'Золотая аура',    desc: 'Твоя строчка в топе светится золотом', price: 1200, type: 'lb_glow' },
+    { id: 'badge_vip',    cat: 'profile', icon: '💎', name: 'Тег [PRO]',       desc: 'Эксклюзивный тег [PRO] у твоего имени', price: 2500, type: 'badge', badgeText: 'PRO' },
+    { id: 'glow_rainbow', cat: 'profile', icon: '🌈', name: 'Неоновый градиент',desc: 'Яркая переливающаяся рамка в топе', price: 3500, type: 'lb_glow' },
+    { id: 'badge_dragon', cat: 'profile', icon: '🐉', name: 'Значок Легенда',  desc: 'Редкий значок 🐉 для топ-игроков', price: 5000, type: 'badge', badgeText: '🐉' },
+    { id: 'glow_default', cat: 'profile', icon: '▫️', name: 'Обычная рамка',   desc: 'Стандартная карточка в топе', price: 0, type: 'lb_glow' },
 
-const CHESS_SYMBOLS = {
-    K: '♔\uFE0E', Q: '♕\uFE0E', R: '♖\uFE0E', B: '♗\uFE0E', N: '♘\uFE0E', P: '♙\uFE0E',
-    k: '♚\uFE0E', q: '♛\uFE0E', r: '♜\uFE0E', b: '♝\uFE0E', n: '♞\uFE0E', p: '♟\uFE0E'
-};
-
-const PIECE_VALUES = { p: 100, n: 320, b: 330, r: 500, q: 900, k: 20000 };
-
-const PST_PAWN = [
-    [0,  0,  0,  0,  0,  0,  0,  0],
-    [50, 50, 50, 50, 50, 50, 50, 50],
-    [10, 10, 20, 30, 30, 20, 10, 10],
-    [5,  5, 10, 25, 25, 10,  5,  5],
-    [0,  0,  0, 20, 20,  0,  0,  0],
-    [5, -5,-10,  0,  0,-10, -5,  5],
-    [5, 10, 10,-20,-20, 10, 10,  5],
-    [0,  0,  0,  0,  0,  0,  0,  0]
+    // Бусты Зомби-лабы
+    { id: 'boost_zx2',     cat: 'boosts', icon: '⚡', name: 'Мутаген ×2 (15 мин)', desc: 'Удваивает клик и автодоход в Лабе', price: 120, type: 'consumable' },
+    { id: 'z_autoflask',   cat: 'boosts', icon: '🤖', name: 'Дрон-сборщик колб',   desc: 'Навсегда: сам ловит Золотые колбы', price: 1800, type: 'permanent' },
+    { id: 'z_gem_drill',   cat: 'boosts', icon: '⛏️', name: 'Кристальный бур',     desc: 'Навсегда: +5 💎 вместо +2 💎 за колбу', price: 2500, type: 'permanent' }
 ];
 
-const PST_KNIGHT = [
-    [-50,-40,-30,-30,-30,-30,-40,-50],
-    [-40,-20,  0,  0,  0,  0,-20,-40],
-    [-30,  0, 10, 15, 15, 10,  0,-30],
-    [-30,  5, 15, 20, 20, 15,  5,-30],
-    [-30,  0, 15, 20, 20, 15,  0,-30],
-    [-30,  5, 10, 15, 15, 10,  5,-30],
-    [-40,-20,  0,  5,  5,  0,-20,-40],
-    [-50,-40,-30,-30,-30,-30,-40,-50]
-];
-
-const PST_CENTER = [
-    [-20,-10,-10,-10,-10,-10,-10,-20],
-    [-10,  0,  0,  0,  0,  0,  0,-10],
-    [-10,  0,  5, 10, 10,  5,  0,-10],
-    [-10,  5,  5, 10, 10,  5,  5,-10],
-    [-10,  0, 10, 10, 10, 10,  0,-10],
-    [-10, 10, 10, 10, 10, 10, 10,-10],
-    [-10,  5,  0,  0,  0,  0,  5,-10],
-    [-20,-10,-10,-10,-10,-10,-10,-20]
-];
-
-let chessState = null;
-let chessAiTimer = null;
-let chessOnlinePollTimer = null;
-let pendingPromoMove = null;
-let isSyncingOnlineMove = false;
-
-function encodeChessBoard(board) {
-    let s = '';
-    for (let r = 0; r < 8; r++) {
-        for (let c = 0; c < 8; c++) {
-            s += board[r][c] || '.';
-        }
-    }
-    return s;
-}
-
-function decodeChessBoard(str) {
-    if (!str || typeof str !== 'string' || str.length !== 64) return createInitialChessBoard();
-    const b = [];
-    for (let r = 0; r < 8; r++) {
-        const row = [];
-        for (let c = 0; c < 8; c++) {
-            const ch = str[r * 8 + c];
-            row.push(ch === '.' ? null : ch);
-        }
-        b.push(row);
-    }
-    return b;
-}
-
-function openChess() {
-    if (typeof isUserBanned !== 'undefined' && isUserBanned) return;
-    injectChessStyles();
-    if (typeof activeDuel !== 'undefined' && activeDuel) {
-        activeDuel = null;
-        if (typeof updateDuelLiveBanner === 'function') updateDuelLiveBanner();
-    }
-    sfxClick();
-    showScreen('chess-screen');
-    startNewChessGame();
-}
-
-function stopChess() {
-    if (chessAiTimer) {
-        clearTimeout(chessAiTimer);
-        chessAiTimer = null;
-    }
-    if (chessOnlinePollTimer) {
-        clearInterval(chessOnlinePollTimer);
-        chessOnlinePollTimer = null;
-    }
-    const promo = document.getElementById('chess-promo-modal');
-    if (promo) promo.classList.remove('active');
-}
-
-function createInitialChessBoard() {
-    return [
-        ['r','n','b','q','k','b','n','r'],
-        ['p','p','p','p','p','p','p','p'],
-        [null,null,null,null,null,null,null,null],
-        [null,null,null,null,null,null,null,null],
-        [null,null,null,null,null,null,null,null],
-        [null,null,null,null,null,null,null,null],
-        ['P','P','P','P','P','P','P','P'],
-        ['R','N','B','Q','K','B','N','R']
-    ];
-}
-
-function configureChessTopControls(isOnline) {
-    const modeSel = document.getElementById('chess-mode-select');
-    const resetBtn = document.getElementById('chess-reset-btn');
-    const onlineTag = document.getElementById('chess-online-tag');
-    const undoBtn = document.getElementById('chess-undo-btn');
-    const resignBtn = document.getElementById('chess-resign-btn');
-
-    if (modeSel) modeSel.style.display = isOnline ? 'none' : 'inline-block';
-    if (resetBtn) resetBtn.style.display = isOnline ? 'none' : 'inline-flex';
-    if (onlineTag) onlineTag.style.display = isOnline ? 'inline-block' : 'none';
-    if (undoBtn) undoBtn.style.display = isOnline ? 'none' : 'inline-flex';
-    if (resignBtn) resignBtn.style.display = isOnline ? 'inline-flex' : 'none';
-}
-
-function startNewChessGame() {
-    injectChessStyles();
-    stopChess();
-    configureChessTopControls(false);
-
-    const resOverlay = document.getElementById('chess-result-overlay');
-    if (resOverlay) resOverlay.classList.remove('active');
-
-    const modeSelect = document.getElementById('chess-mode-select');
-    const mode = modeSelect ? modeSelect.value : 'medium';
-
-    chessState = {
-        board: createInitialChessBoard(),
-        turn: 'w',
-        mode: mode,
-        myColor: 'w',
-        selected: null,
-        legalMoves: [],
-        lastMove: null,
-        castling: { wK: true, wQ: true, bK: true, bQ: true },
-        epTarget: null,
-        history: [],
-        capturedW: [],
-        capturedB: [],
-        gameOver: false,
-        aiThinking: false
-    };
-
-    renderChessBoard();
-    updateChessStatus();
-}
-
-// ==================== ОНЛАЙН-ШАХМАТЫ (ПОШАГОВАЯ ПАРТИЯ) ====================
-function startNewOnlineChess(duelObj) {
-    injectChessStyles();
-    stopChess();
-    configureChessTopControls(true);
-    if (typeof updateDuelLiveBanner === 'function') updateDuelLiveBanner();
-
-    const onlineTag = document.getElementById('chess-online-tag');
-    if (onlineTag) {
-        onlineTag.innerText = `⚔️ vs ${duelObj.toName}`;
-    }
-
-    const resOverlay = document.getElementById('chess-result-overlay');
-    if (resOverlay) resOverlay.classList.remove('active');
-
-    chessState = {
-        board: createInitialChessBoard(),
-        turn: 'w',
-        mode: 'online',
-        myColor: 'w',
-        duelId: duelObj.id,
-        moveCount: 0,
-        selected: null,
-        legalMoves: [],
-        lastMove: null,
-        castling: { wK: true, wQ: true, bK: true, bQ: true },
-        epTarget: null,
-        history: [],
-        capturedW: [],
-        capturedB: [],
-        gameOver: false,
-        aiThinking: false
-    };
-
-    renderChessBoard();
-    updateChessStatus();
-}
-
-async function openOnlineChessMatch(duelId) {
-    injectChessStyles();
-    const baseUrl = FIREBASE_URL.replace(/\/+$/, '');
-    try {
-        const res = await fetch(`${baseUrl}/duels/${duelId}.json?t=${Date.now()}`, { cache: 'no-store' });
-        const duel = await res.json();
-        if (!duel || duel.game !== 'chess') {
-            alert('Партия не найдена!');
-            return;
-        }
-
-        const isCreator = duel.fromId === myPlayerId;
-        const myColor = isCreator ? 'w' : 'b';
-
-        if (!isCreator && duel.status === 'chess_active' && !duel.acceptedByOpponent) {
-            const bet = Number(duel.bet) || 0;
-            if (bet > 0) {
-                if (getGems() < bet) {
-                    sfxAlarm();
-                    doVibrate(120);
-                    spawnFloatText(window.innerWidth / 2, window.innerHeight / 2, `💎 Нужно ${bet} 💎 для принятия!`, '#ef4444');
-                    return;
-                }
-                addGems(-bet);
-            }
-            await fetch(`${baseUrl}/duels/${duelId}.json`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ acceptedByOpponent: true })
-            });
-            duel.acceptedByOpponent = true;
-        }
-
-        activeDuel = {
-            ...duel,
-            role: isCreator ? 'creator' : 'opponent',
-            myColor: myColor,
-            isFirstMove: false
-        };
-
-        document.getElementById('main-menu').style.display = 'none';
-        document.querySelectorAll('.screen').forEach(s => s.style.display = 'none');
-        document.getElementById('chess-screen').style.display = 'flex';
-
-        stopChess();
-        configureChessTopControls(true);
-        if (typeof updateDuelLiveBanner === 'function') updateDuelLiveBanner();
-
-        const oppName = isCreator ? duel.toName : duel.fromName;
-        const onlineTag = document.getElementById('chess-online-tag');
-        if (onlineTag) onlineTag.innerText = `⚔️ vs ${oppName}`;
-
-        const resOverlay = document.getElementById('chess-result-overlay');
-        if (resOverlay) resOverlay.classList.remove('active');
-
-        chessState = {
-            board: decodeChessBoard(duel.boardStr),
-            turn: duel.turn || 'w',
-            mode: 'online',
-            myColor: myColor,
-            duelId: duel.id,
-            moveCount: Number(duel.moveCount) || 1,
-            selected: null,
-            legalMoves: [],
-            lastMove: duel.lastMove || null,
-            castling: duel.castling || { wK: true, wQ: true, bK: true, bQ: true },
-            epTarget: duel.epTarget || null,
-            history: [],
-            capturedW: (duel.capturedWStr || '').split('').filter(Boolean),
-            capturedB: (duel.capturedBStr || '').split('').filter(Boolean),
-            gameOver: duel.status === 'finished',
-            aiThinking: false
-        };
-
-        renderChessBoard();
-        updateChessStatus();
-
-        if (duel.status === 'finished') {
-            showFinishedOnlineChessResult(duel);
-            return;
-        }
-
-        chessOnlinePollTimer = setInterval(pollOnlineChessState, 4000);
-    } catch {
-        alert('Ошибка загрузки партии!');
-    }
-}
-
-async function pollOnlineChessState() {
-    if (!chessState || chessState.mode !== 'online' || chessState.gameOver || isSyncingOnlineMove) return;
-    const baseUrl = FIREBASE_URL.replace(/\/+$/, '');
-    try {
-        const res = await fetch(`${baseUrl}/duels/${chessState.duelId}.json?t=${Date.now()}`, { cache: 'no-store' });
-        const duel = await res.json();
-        if (!duel) return;
-
-        const remoteMoves = Number(duel.moveCount) || 0;
-        if (remoteMoves > chessState.moveCount || duel.status === 'finished') {
-            chessState.board = decodeChessBoard(duel.boardStr);
-            chessState.turn = duel.turn || chessState.turn;
-            chessState.moveCount = remoteMoves;
-            chessState.lastMove = duel.lastMove || null;
-            chessState.castling = duel.castling || chessState.castling;
-            chessState.epTarget = duel.epTarget || null;
-            chessState.capturedW = (duel.capturedWStr || '').split('').filter(Boolean);
-            chessState.capturedB = (duel.capturedBStr || '').split('').filter(Boolean);
-            chessState.selected = null;
-            chessState.legalMoves = [];
-
-            sfxPop();
-            doVibrate(35);
-            renderChessBoard();
-
-            if (duel.status === 'finished') {
-                chessState.gameOver = true;
-                stopChess();
-                updateChessStatus();
-                showFinishedOnlineChessResult(duel);
-            } else {
-                updateChessStatus();
-            }
-        }
-    } catch {}
-}
-
-function showFinishedOnlineChessResult(duel) {
-    const overlay = document.getElementById('chess-result-overlay');
-    const titleEl = document.getElementById('chess-res-title');
-    const subEl = document.getElementById('chess-res-sub');
-    const badgeEl = document.getElementById('chess-res-badge');
-    if (!overlay || !titleEl) return;
-
-    const bet = Number(duel.bet) || 0;
-    const bank = bet * 2;
-    const oppName = duel.fromId === myPlayerId ? duel.toName : duel.fromName;
-
-    if (duel.winnerId === myPlayerId) {
-        sfxVictory();
-        spawnConfettiCannon(true);
-        spawnConfettiCannon(false);
-        titleEl.innerText = '👑 ПОБЕДА В ОНЛАЙН-ШАХМАТАХ!';
-        titleEl.style.color = '#4ade80';
-        subEl.innerText = duel.resignedBy ? `${oppName} сдался!` : `Ты поставил мат игроку ${oppName}!`;
-        badgeEl.innerText = bank > 0 ? `Банк: +${bank} 💎` : 'Чистая победа!';
-    } else if (duel.winnerId === 'draw') {
-        sfxPop();
-        titleEl.innerText = '🤝 НИЧЬЯ (ПАТ)';
-        titleEl.style.color = '#38bdf8';
-        subEl.innerText = `Партия с ${oppName} завершилась вничью.`;
-        badgeEl.innerText = bet > 0 ? `Ставка ${bet} 💎 возвращена` : 'Ничья';
-    } else {
-        sfxExplosion();
-        titleEl.innerText = '💀 ПОРАЖЕНИЕ';
-        titleEl.style.color = '#ef4444';
-        subEl.innerText = duel.resignedBy === myPlayerId ? 'Ты сдался в этой партии.' : `${oppName} поставил тебе мат!`;
-        badgeEl.innerText = bank > 0 ? `Банк ${bank} 💎 достался сопернику` : 'Возьми реванш в Дуэлях!';
-    }
-
-    overlay.classList.add('active');
-}
-
-async function resignOnlineChess() {
-    if (!chessState || chessState.mode !== 'online' || !activeDuel) return;
-    if (activeDuel.isFirstMove) {
-        if (!confirm('Отменить создание вызова? Гемы не спишутся.')) return;
-        activeDuel = null;
-        if (typeof updateDuelLiveBanner === 'function') updateDuelLiveBanner();
-        openDuels('create');
-        return;
-    }
-
-    if (!confirm('Сдаться в этой партии? Ставка достанется сопернику!')) return;
-    sfxExplosion();
-    isSyncingOnlineMove = true;
-
-    const baseUrl = FIREBASE_URL.replace(/\/+$/, '');
-    const oppId = activeDuel.fromId === myPlayerId ? activeDuel.toId : activeDuel.fromId;
-
-    try {
-        await fetch(`${baseUrl}/duels/${chessState.duelId}.json`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                status: 'finished',
-                winnerId: oppId,
-                resignedBy: myPlayerId,
-                payoutClaimed: false,
-                finishedAt: Date.now()
-            })
-        });
-    } catch {}
-
-    isSyncingOnlineMove = false;
-    chessState.gameOver = true;
-    stopChess();
-    activeDuel = null;
-    if (typeof updateDuelLiveBanner === 'function') updateDuelLiveBanner();
-    openDuels('history');
-}
-
-// ==================== ЛОГИКА ПРАВИЛ ШАХМАТ ====================
-function pieceColor(p) {
-    if (!p) return null;
-    return p === p.toUpperCase() ? 'w' : 'b';
-}
-
-function cloneBoard(b) {
-    return b.map(row => row.slice());
-}
-
-function inBounds(r, c) {
-    return r >= 0 && r < 8 && c >= 0 && c < 8;
-}
-
-function isSquareAttacked(board, targetR, targetC, byColor) {
-    const pawnDir = byColor === 'w' ? 1 : -1;
-    const enemyPawn = byColor === 'w' ? 'P' : 'p';
-    for (const dc of [-1, 1]) {
-        const pr = targetR + pawnDir, pc = targetC + dc;
-        if (inBounds(pr, pc) && board[pr][pc] === enemyPawn) return true;
-    }
-
-    const enemyKnight = byColor === 'w' ? 'N' : 'n';
-    for (const [dr, dc] of [[-2,-1],[-2,1],[-1,-2],[-1,2],[1,-2],[1,2],[2,-1],[2,1]]) {
-        const nr = targetR + dr, nc = targetC + dc;
-        if (inBounds(nr, nc) && board[nr][nc] === enemyKnight) return true;
-    }
-
-    const enemyKing = byColor === 'w' ? 'K' : 'k';
-    for (let dr = -1; dr <= 1; dr++) {
-        for (let dc = -1; dc <= 1; dc++) {
-            if (dr === 0 && dc === 0) continue;
-            const kr = targetR + dr, kc = targetC + dc;
-            if (inBounds(kr, kc) && board[kr][kc] === enemyKing) return true;
-        }
-    }
-
-    const enemyRook = byColor === 'w' ? 'R' : 'r';
-    const enemyQueen = byColor === 'w' ? 'Q' : 'q';
-    for (const [dr, dc] of [[-1,0],[1,0],[0,-1],[0,1]]) {
-        let r = targetR + dr, c = targetC + dc;
-        while (inBounds(r, c)) {
-            const p = board[r][c];
-            if (p) {
-                if (p === enemyRook || p === enemyQueen) return true;
-                break;
-            }
-            r += dr; c += dc;
-        }
-    }
-
-    const enemyBishop = byColor === 'w' ? 'B' : 'b';
-    for (const [dr, dc] of [[-1,-1],[-1,1],[1,-1],[1,1]]) {
-        let r = targetR + dr, c = targetC + dc;
-        while (inBounds(r, c)) {
-            const p = board[r][c];
-            if (p) {
-                if (p === enemyBishop || p === enemyQueen) return true;
-                break;
-            }
-            r += dr; c += dc;
-        }
-    }
-
-    return false;
-}
-
-function findKing(board, color) {
-    const kChar = color === 'w' ? 'K' : 'k';
-    for (let r = 0; r < 8; r++) {
-        for (let c = 0; c < 8; c++) {
-            if (board[r][c] === kChar) return { r, c };
-        }
-    }
-    return null;
-}
-
-function isKingInCheck(board, color) {
-    const kPos = findKing(board, color);
-    if (!kPos) return false;
-    return isSquareAttacked(board, kPos.r, kPos.c, color === 'w' ? 'b' : 'w');
-}
-
-function generatePseudoMoves(state, color) {
-    const moves = [];
-    const { board, castling, epTarget } = state;
-    const enemy = color === 'w' ? 'b' : 'w';
-
-    for (let r = 0; r < 8; r++) {
-        for (let c = 0; c < 8; c++) {
-            const p = board[r][c];
-            if (!p || pieceColor(p) !== color) continue;
-            const type = p.toLowerCase();
-
-            if (type === 'p') {
-                const dir = color === 'w' ? -1 : 1;
-                const startRow = color === 'w' ? 6 : 1;
-                const promoRow = color === 'w' ? 0 : 7;
-
-                const r1 = r + dir;
-                if (inBounds(r1, c) && !board[r1][c]) {
-                    moves.push({ fromR: r, fromC: c, toR: r1, toC: c, promo: r1 === promoRow });
-                    const r2 = r + dir * 2;
-                    if (r === startRow && !board[r2][c]) {
-                        moves.push({ fromR: r, fromC: c, toR: r2, toC: c, doublePawn: true });
-                    }
-                }
-
-                for (const dc of [-1, 1]) {
-                    const tc = c + dc;
-                    if (!inBounds(r1, tc)) continue;
-                    const target = board[r1][tc];
-                    if (target && pieceColor(target) === enemy) {
-                        moves.push({ fromR: r, fromC: c, toR: r1, toC: tc, promo: r1 === promoRow });
-                    } else if (epTarget && epTarget.r === r1 && epTarget.c === tc) {
-                        moves.push({ fromR: r, fromC: c, toR: r1, toC: tc, enPassant: true });
-                    }
-                }
-            } else if (type === 'n') {
-                for (const [dr, dc] of [[-2,-1],[-2,1],[-1,-2],[-1,2],[1,-2],[1,2],[2,-1],[2,1]]) {
-                    const nr = r + dr, nc = c + dc;
-                    if (inBounds(nr, nc) && pieceColor(board[nr][nc]) !== color) {
-                        moves.push({ fromR: r, fromC: c, toR: nr, toC: nc });
-                    }
-                }
-            } else if (type === 'b' || type === 'r' || type === 'q') {
-                const dirs = [];
-                if (type === 'r' || type === 'q') dirs.push([-1,0],[1,0],[0,-1],[0,1]);
-                if (type === 'b' || type === 'q') dirs.push([-1,-1],[-1,1],[1,-1],[1,1]);
-                for (const [dr, dc] of dirs) {
-                    let nr = r + dr, nc = c + dc;
-                    while (inBounds(nr, nc)) {
-                        const target = board[nr][nc];
-                        if (!target) {
-                            moves.push({ fromR: r, fromC: c, toR: nr, toC: nc });
-                        } else {
-                            if (pieceColor(target) === enemy) {
-                                moves.push({ fromR: r, fromC: c, toR: nr, toC: nc });
-                            }
-                            break;
-                        }
-                        nr += dr; nc += dc;
-                    }
-                }
-            } else if (type === 'k') {
-                for (let dr = -1; dr <= 1; dr++) {
-                    for (let dc = -1; dc <= 1; dc++) {
-                        if (dr === 0 && dc === 0) continue;
-                        const nr = r + dr, nc = c + dc;
-                        if (inBounds(nr, nc) && pieceColor(board[nr][nc]) !== color) {
-                            moves.push({ fromR: r, fromC: c, toR: nr, toC: nc });
-                        }
-                    }
-                }
-
-                const homeRow = color === 'w' ? 7 : 0;
-                if (r === homeRow && c === 4 && !isSquareAttacked(board, homeRow, 4, enemy)) {
-                    const canK = color === 'w' ? castling.wK : castling.bK;
-                    const canQ = color === 'w' ? castling.wQ : castling.bQ;
-                    const rookChar = color === 'w' ? 'R' : 'r';
-
-                    if (canK && board[homeRow][7] === rookChar && !board[homeRow][5] && !board[homeRow][6]) {
-                        if (!isSquareAttacked(board, homeRow, 5, enemy) && !isSquareAttacked(board, homeRow, 6, enemy)) {
-                            moves.push({ fromR: homeRow, fromC: 4, toR: homeRow, toC: 6, castle: 'K' });
-                        }
-                    }
-                    if (canQ && board[homeRow][0] === rookChar && !board[homeRow][1] && !board[homeRow][2] && !board[homeRow][3]) {
-                        if (!isSquareAttacked(board, homeRow, 3, enemy) && !isSquareAttacked(board, homeRow, 2, enemy)) {
-                            moves.push({ fromR: homeRow, fromC: 4, toR: homeRow, toC: 2, castle: 'Q' });
-                        }
-                    }
-                }
-            }
-        }
-    }
-    return moves;
-}
-
-function applyMoveToState(state, move, promoChoice = 'q') {
-    const board = cloneBoard(state.board);
-    const castling = { ...state.castling };
-    const piece = board[move.fromR][move.fromC];
-    const color = pieceColor(piece);
-    let captured = board[move.toR][move.toC];
-
-    if (move.enPassant) {
-        captured = board[move.fromR][move.toC];
-        board[move.fromR][move.toC] = null;
-    }
-
-    board[move.toR][move.toC] = piece;
-    board[move.fromR][move.fromC] = null;
-
-    if (move.promo) {
-        const pChar = color === 'w' ? promoChoice.toUpperCase() : promoChoice.toLowerCase();
-        board[move.toR][move.toC] = pChar;
-    }
-
-    if (move.castle === 'K') {
-        board[move.fromR][5] = board[move.fromR][7];
-        board[move.fromR][7] = null;
-    } else if (move.castle === 'Q') {
-        board[move.fromR][3] = board[move.fromR][0];
-        board[move.fromR][0] = null;
-    }
-
-    if (piece === 'K') { castling.wK = false; castling.wQ = false; }
-    if (piece === 'k') { castling.bK = false; castling.bQ = false; }
-    if (move.fromR === 7 && move.fromC === 0) castling.wQ = false;
-    if (move.fromR === 7 && move.fromC === 7) castling.wK = false;
-    if (move.fromR === 0 && move.fromC === 0) castling.bQ = false;
-    if (move.fromR === 0 && move.fromC === 7) castling.bK = false;
-    if (move.toR === 7 && move.toC === 0) castling.wQ = false;
-    if (move.toR === 7 && move.toC === 7) castling.wK = false;
-    if (move.toR === 0 && move.toC === 0) castling.bQ = false;
-    if (move.toR === 0 && move.toC === 7) castling.bK = false;
-
-    const epTarget = move.doublePawn ? { r: (move.fromR + move.toR) / 2, c: move.fromC } : null;
-
+let ecoState = loadEcoState();
+let currentShopTab = 'mines';
+let isManualGemSyncing = false;
+
+function getDefaultEcoState() {
     return {
-        board,
-        turn: color === 'w' ? 'b' : 'w',
-        castling,
-        epTarget,
-        captured
+        gems: 0,
+        claimedIssuedGems: 0,
+        owned: [
+            'mskin_default', 'mflag_default', 'tskin_default', 'mj_default',
+            'cboard_default', 'cfx_default', 'cacc_none',
+            'badge_none', 'glow_default'
+        ],
+        equipped: {
+            mines_theme: 'mskin_default',
+            mines_flag: 'mflag_default',
+            tetris_skin: 'tskin_default',
+            mj_theme: 'mj_default',
+            chess_board: 'cboard_default',
+            chess_fx: 'cfx_default',
+            chess_acc: 'cacc_none',
+            badge: 'badge_none',
+            lb_glow: 'glow_default'
+        },
+        dailyLastDay: '',
+        dailyStreak: 0,
+        zBoostUntil: 0
     };
 }
 
-function getAllLegalMoves(state, color) {
-    const pseudo = generatePseudoMoves(state, color);
-    return pseudo.filter(m => {
-        const next = applyMoveToState(state, m, 'q');
-        return !isKingInCheck(next.board, color);
-    });
-}
-
-// ==================== ЭФФЕКТЫ ВЗЯТИЯ ИЗ МАГАЗИНА ====================
-function triggerChessCaptureEffect(toR, toC) {
-    const boardEl = document.getElementById('chess-board');
-    if (!boardEl) return;
-
-    const flip = chessState && chessState.mode === 'online' && chessState.myColor === 'b';
-    const visR = flip ? 7 - toR : toR;
-    const visC = flip ? 7 - toC : toC;
-    const cellIdx = visR * 8 + visC;
-    const cellEl = boardEl.children[cellIdx];
-
-    const fxType = typeof getEquippedChessFx === 'function' ? getEquippedChessFx() : 'cfx_default';
-    let x = window.innerWidth / 2;
-    let y = window.innerHeight / 2;
-    if (cellEl) {
-        const rect = cellEl.getBoundingClientRect();
-        x = rect.left + rect.width / 2;
-        y = rect.top + rect.height / 2;
-        cellEl.classList.remove('cap-flash-lightning', 'cap-flash-fire', 'cap-flash-ice', 'cap-flash-explosion');
-        void cellEl.offsetWidth;
-        if (fxType === 'cfx_lightning') cellEl.classList.add('cap-flash-lightning');
-        else if (fxType === 'cfx_fire') cellEl.classList.add('cap-flash-fire');
-        else if (fxType === 'cfx_ice') cellEl.classList.add('cap-flash-ice');
-        else if (fxType === 'cfx_explosion') cellEl.classList.add('cap-flash-explosion');
-    }
-
-    if (typeof spawnBurst === 'function') {
-        if (fxType === 'cfx_lightning') {
-            spawnBurst(x, y, 26, ['#38bdf8', '#e0f2fe', '#facc15'], 1.3);
-            if (typeof spawnFloatText === 'function') spawnFloatText(x, y - 10, '⚡', '#38bdf8');
-        } else if (fxType === 'cfx_fire') {
-            spawnBurst(x, y, 28, ['#f97316', '#ef4444', '#fbbf24'], 1.3);
-            if (typeof spawnFloatText === 'function') spawnFloatText(x, y - 10, '🔥', '#f97316');
-        } else if (fxType === 'cfx_ice') {
-            spawnBurst(x, y, 26, ['#bae6fd', '#38bdf8', '#ffffff'], 1.2);
-            if (typeof spawnFloatText === 'function') spawnFloatText(x, y - 10, '❄️', '#bae6fd');
-        } else if (fxType === 'cfx_explosion') {
-            spawnBurst(x, y, 36, ['#4ade80', '#a855f7', '#fbbf24'], 1.5);
-            if (typeof triggerShake === 'function') triggerShake(false);
-            if (typeof spawnFloatText === 'function') spawnFloatText(x, y - 10, '☢️ BOOM!', '#4ade80');
-        } else {
-            spawnBurst(x, y, 14, ['#fb7185', '#fbbf24'], 0.9);
-        }
-    }
-}
-
-// ==================== ХОД ИГРОКА И СИНХРОНИЗАЦИЯ ====================
-function onChessCellClick(r, c) {
-    if (!chessState || chessState.gameOver || chessState.aiThinking || isSyncingOnlineMove) return;
-    if (chessState.mode !== 'pvp' && chessState.mode !== 'online' && chessState.turn === 'b') return;
-    if (chessState.mode === 'online' && chessState.turn !== chessState.myColor) return;
-
-    const clickedPiece = chessState.board[r][c];
-    const clickedColor = pieceColor(clickedPiece);
-
-    const chosenMove = chessState.legalMoves.find(m => m.toR === r && m.toC === c);
-    if (chosenMove) {
-        if (chosenMove.promo) {
-            pendingPromoMove = chosenMove;
-            const promoModal = document.getElementById('chess-promo-modal');
-            if (promoModal) promoModal.classList.add('active');
-            sfxPop();
-            return;
-        }
-        executeChessMove(chosenMove, 'q');
-        return;
-    }
-
-    if (clickedColor === chessState.turn) {
-        const allMoves = getAllLegalMoves(chessState, chessState.turn);
-        const pieceMoves = allMoves.filter(m => m.fromR === r && m.fromC === c);
-        chessState.selected = { r, c };
-        chessState.legalMoves = pieceMoves;
-        sfxClick();
-        renderChessBoard();
-    } else {
-        chessState.selected = null;
-        chessState.legalMoves = [];
-        renderChessBoard();
-    }
-}
-
-function chooseChessPromotion(pieceType) {
-    const promoModal = document.getElementById('chess-promo-modal');
-    if (promoModal) promoModal.classList.remove('active');
-    if (!pendingPromoMove) return;
-    const mv = pendingPromoMove;
-    pendingPromoMove = null;
-    executeChessMove(mv, pieceType);
-}
-
-async function executeChessMove(move, promoChoice = 'q') {
-    chessState.history.push({
-        board: cloneBoard(chessState.board),
-        turn: chessState.turn,
-        castling: { ...chessState.castling },
-        epTarget: chessState.epTarget ? { ...chessState.epTarget } : null,
-        lastMove: chessState.lastMove ? { ...chessState.lastMove } : null,
-        capturedW: chessState.capturedW.slice(),
-        capturedB: chessState.capturedB.slice()
-    });
-
-    const next = applyMoveToState(chessState, move, promoChoice);
-    chessState.board = next.board;
-    chessState.turn = next.turn;
-    chessState.castling = next.castling;
-    chessState.epTarget = next.epTarget;
-    chessState.lastMove = { fromR: move.fromR, fromC: move.fromC, toR: move.toR, toC: move.toC };
-    chessState.selected = null;
-    chessState.legalMoves = [];
-
-    if (next.captured) {
-        if (pieceColor(next.captured) === 'w') chessState.capturedW.push(next.captured);
-        else chessState.capturedB.push(next.captured);
-        sfxPop();
-        doVibrate(25);
-    } else {
-        sfxClick();
-    }
-
-    renderChessBoard();
-    if (next.captured) {
-        triggerChessCaptureEffect(move.toR, move.toC);
-    }
-
-    const nextLegal = getAllLegalMoves(chessState, chessState.turn);
-    const inCheck = isKingInCheck(chessState.board, chessState.turn);
-
-    if (chessState.mode === 'online' && activeDuel) {
-        await pushOnlineChessMove(nextLegal.length === 0, inCheck);
-        return;
-    }
-
-    if (nextLegal.length === 0) {
-        chessState.gameOver = true;
-        updateChessStatus();
-        handleChessGameEnd(inCheck);
-        return;
-    }
-
-    if (inCheck) {
-        sfxFlag();
-        doVibrate(45);
-    }
-
-    updateChessStatus();
-
-    if (!chessState.gameOver && chessState.mode !== 'pvp' && chessState.turn === 'b') {
-        chessState.aiThinking = true;
-        updateChessStatus();
-        chessAiTimer = setTimeout(() => {
-            chessAiTimer = null;
-            makeChessAiMove();
-        }, 280);
-    }
-}
-
-async function pushOnlineChessMove(isGameEnd, isCheck) {
-    isSyncingOnlineMove = true;
-    const baseUrl = FIREBASE_URL.replace(/\/+$/, '');
-    const duel = activeDuel;
-
-    if (duel.isFirstMove) {
-        const bet = Number(duel.bet) || 0;
-        if (bet > 0) {
-            if (getGems() < bet) {
-                alert('Недостаточно кристаллов для ставки!');
-                isSyncingOnlineMove = false;
-                backToMenu();
-                return;
-            }
-            addGems(-bet);
-        }
-        duel.isFirstMove = false;
-    }
-
-    chessState.moveCount = (chessState.moveCount || 0) + 1;
-    const nextTurnId = chessState.turn === 'w' ? duel.fromId : duel.toId;
-
-    const bet = Number(duel.bet) || 0;
-    const bank = bet * 2;
-    let status = 'chess_active';
-    let winnerId = null;
-    let payoutClaimed = false;
-
-    if (isGameEnd) {
-        chessState.gameOver = true;
-        status = 'finished';
-        if (isCheck) {
-            winnerId = myPlayerId;
-            payoutClaimed = true;
-            if (bank > 0) addGems(bank);
-            if (typeof addGems === 'function') addGems(25);
-        } else {
-            winnerId = 'draw';
-            payoutClaimed = false;
-            if (bet > 0) addGems(bet);
-        }
-    } else if (isCheck) {
-        sfxFlag();
-        doVibrate(45);
-    }
-
-    const payload = {
-        id: duel.id,
-        game: 'chess',
-        bet: bet,
-        fromId: duel.fromId,
-        fromName: duel.fromName,
-        fromTag: duel.fromTag,
-        toId: duel.toId,
-        toName: duel.toName,
-        toTag: duel.toTag,
-        status: status,
-        turn: chessState.turn,
-        currentTurnId: nextTurnId,
-        moveCount: chessState.moveCount,
-        acceptedByOpponent: duel.acceptedByOpponent || duel.role === 'opponent',
-        boardStr: encodeChessBoard(chessState.board),
-        castling: chessState.castling,
-        epTarget: chessState.epTarget,
-        lastMove: chessState.lastMove,
-        capturedWStr: chessState.capturedW.join(''),
-        capturedBStr: chessState.capturedB.join(''),
-        winnerId: winnerId,
-        payoutClaimed: payoutClaimed,
-        createdAt: duel.createdAt || Date.now(),
-        updatedAt: Date.now()
-    };
-
+function loadEcoState() {
+    migrateLegacyKey('gameHubEconomy');
+    const def = getDefaultEcoState();
     try {
-        await fetch(`${baseUrl}/duels/${duel.id}.json`, {
+        const raw = localStorage.getItem(userKey('gameHubEconomy'));
+        if (raw) {
+            const parsed = JSON.parse(raw);
+            return {
+                ...def,
+                ...parsed,
+                owned: Array.isArray(parsed.owned) ? Array.from(new Set([...def.owned, ...parsed.owned])) : def.owned,
+                equipped: { ...def.equipped, ...(parsed.equipped || {}) }
+            };
+        }
+    } catch {}
+    return def;
+}
+
+function applyRemoteEcoState(remoteEco) {
+    const def = getDefaultEcoState();
+    ecoState = {
+        ...def,
+        ...remoteEco,
+        owned: Array.isArray(remoteEco.owned) ? Array.from(new Set([...def.owned, ...remoteEco.owned])) : def.owned,
+        equipped: { ...def.equipped, ...(remoteEco.equipped || {}) }
+    };
+    try { localStorage.setItem(userKey('gameHubEconomy'), JSON.stringify(ecoState)); } catch {}
+    initTgProfile();
+    updateGemsUI();
+    applyMahjongTheme();
+    applyMinesTheme();
+    if (typeof renderChessBoard === 'function') renderChessBoard();
+}
+
+function saveEcoState() {
+    try { localStorage.setItem(userKey('gameHubEconomy'), JSON.stringify(ecoState)); } catch {}
+    updateGemsUI();
+    applyMahjongTheme();
+    applyMinesTheme();
+    if (typeof renderChessBoard === 'function') renderChessBoard();
+    scheduleCloudSave();
+}
+
+function getGems() {
+    return Math.floor(Math.max(0, ecoState.gems || 0));
+}
+
+function addGems(amount, reason = '') {
+    let add = Math.floor(amount);
+    if (add === 0) return;
+
+    const vip = typeof isVipUser === 'function' && isVipUser();
+    const lowerReason = String(reason || '').toLowerCase();
+    const isExcluded = lowerReason.includes('админ') || lowerReason.includes('списан') || lowerReason.includes('дуэл') || lowerReason.includes('возврат');
+
+    if (add > 0 && vip && !isExcluded) {
+        add = Math.round(add * (typeof VIP_GEM_MULT !== 'undefined' ? VIP_GEM_MULT : 2));
+    }
+
+    ecoState.gems = Math.max(0, getGems() + add);
+    saveEcoState();
+    syncGemsToCloud();
+    if (reason) {
+        const sign = add > 0 ? `+${add}` : `${add}`;
+        const vipTag = (add > 0 && vip && !isExcluded) ? ' 👑×2' : '';
+        spawnFloatText(window.innerWidth / 2, window.innerHeight / 2 - 40, `${sign} 💎${vipTag} (${reason})`, add > 0 ? '#e879f9' : '#ef4444');
+    }
+}
+
+function hasShopItem(id) {
+    return ecoState.owned.includes(id);
+}
+
+function getZLabBoostRemaining() {
+    return Math.max(0, (ecoState.zBoostUntil || 0) - Date.now());
+}
+
+function getEquippedChessBoard() {
+    return ecoState.equipped.chess_board || 'cboard_default';
+}
+
+function getEquippedChessFx() {
+    return ecoState.equipped.chess_fx || 'cfx_default';
+}
+
+function getEquippedChessAcc() {
+    return ecoState.equipped.chess_acc || 'cacc_none';
+}
+
+function getMinesFlagIcon() {
+    const id = ecoState.equipped.mines_flag || 'mflag_default';
+    const item = SHOP_CATALOG.find(x => x.id === id);
+    return item ? (item.flagIcon || '🚩') : '🚩';
+}
+
+function applyMinesTheme() {
+    const theme = ecoState.equipped.mines_theme || 'mskin_default';
+    document.body.classList.remove('mines-theme-matrix', 'mines-theme-gold', 'mines-theme-magma');
+    if (theme === 'mskin_matrix') document.body.classList.add('mines-theme-matrix');
+    else if (theme === 'mskin_gold') document.body.classList.add('mines-theme-gold');
+    else if (theme === 'mskin_magma') document.body.classList.add('mines-theme-magma');
+
+    const flagHeader = document.getElementById('m-flag-icon');
+    if (flagHeader) flagHeader.innerText = getMinesFlagIcon();
+}
+
+function getTetrisColors() {
+    const skin = ecoState.equipped.tetris_skin || 'tskin_default';
+    if (skin === 'tskin_gold')   return [null, '#fde047', '#facc15', '#eab308', '#fbbf24', '#f59e0b', '#fef08a', '#d97706'];
+    if (skin === 'tskin_matrix') return [null, '#4ade80', '#22c55e', '#16a34a', '#86efac', '#15803d', '#bbf7d0', '#10b981'];
+    if (skin === 'tskin_cyber')  return [null, '#f472b6', '#e879f9', '#38bdf8', '#c084fc', '#fb7185', '#22d3ee', '#a855f7'];
+    if (skin === 'tskin_ice')    return [null, '#e0f2fe', '#bae6fd', '#7dd3fc', '#38bdf8', '#a5f3fc', '#cffafe', '#0284c7'];
+    return [null, '#38bdf8', '#fbbf24', '#a855f7', '#4ade80', '#ef4444', '#3b82f6', '#f97316'];
+}
+
+function getEquippedBadgeText() {
+    const id = ecoState.equipped.badge || 'badge_none';
+    const item = SHOP_CATALOG.find(x => x.id === id);
+    return item ? (item.badgeText || '') : '';
+}
+
+function getEquippedLbStyle() {
+    const id = ecoState.equipped.lb_glow || 'glow_default';
+    if (id === 'glow_gold') return 'gold';
+    if (id === 'glow_rainbow') return 'rainbow';
+    return '';
+}
+
+function applyMahjongTheme() {
+    const theme = ecoState.equipped.mj_theme || 'mj_default';
+    document.body.classList.remove('mj-theme-carbon', 'mj-theme-jade', 'mj-theme-royal');
+    if (theme === 'mj_carbon') document.body.classList.add('mj-theme-carbon');
+    else if (theme === 'mj_jade') document.body.classList.add('mj-theme-jade');
+    else if (theme === 'mj_royal') document.body.classList.add('mj-theme-royal');
+}
+
+function getTodayKey() {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function getDailyRewardAmount() {
+    const streak = (ecoState.dailyStreak || 0) + 1;
+    const base = Math.min(100, 25 + (streak - 1) * 15);
+    return (typeof isVipUser === 'function' && isVipUser()) ? base * 2 : base;
+}
+
+function updateDailyBonusUI() {
+    const btn = document.getElementById('daily-bonus-btn');
+    if (!btn) return;
+    const today = getTodayKey();
+    const vip = typeof isVipUser === 'function' && isVipUser();
+    if (ecoState.dailyLastDay === today) {
+        btn.innerText = '✅ Бонус взят';
+        btn.classList.add('claimed');
+    } else {
+        btn.innerText = `${vip ? '👑' : ''}🎁 +${getDailyRewardAmount()} 💎`;
+        btn.classList.remove('claimed');
+    }
+}
+
+function claimDailyBonus() {
+    const today = getTodayKey();
+    if (ecoState.dailyLastDay === today) {
+        sfxClick();
+        spawnFloatText(window.innerWidth / 2, 110, '⏳ Возвращайся завтра за новым бонусом!', '#94a3b8');
+        return;
+    }
+
+    const yesterday = new Date(Date.now() - 86400000);
+    const yKey = `${yesterday.getFullYear()}-${String(yesterday.getMonth() + 1).padStart(2, '0')}-${String(yesterday.getDate()).padStart(2, '0')}`;
+    ecoState.dailyStreak = (ecoState.dailyLastDay === yKey) ? (ecoState.dailyStreak || 0) + 1 : 1;
+    ecoState.dailyLastDay = today;
+
+    const vip = typeof isVipUser === 'function' && isVipUser();
+    const baseReward = Math.min(100, 25 + (ecoState.dailyStreak - 1) * 15);
+    const reward = vip ? baseReward * 2 : baseReward;
+
+    ecoState.gems = getGems() + reward;
+    saveEcoState();
+    syncGemsToCloud();
+    updateDailyBonusUI();
+
+    sfxVictory();
+    doVibrate([50, 30, 90]);
+    spawnConfettiCannon(true);
+    spawnConfettiCannon(false);
+    spawnFloatText(window.innerWidth / 2, 130, `🎁 ДЕНЬ ${ecoState.dailyStreak}: +${reward} 💎${vip ? ' (👑 VIP ×2)' : ''}!`, '#fbbf24');
+}
+
+function updateGemsUI() {
+    const val = getGems();
+    const mEl = document.getElementById('menu-gems-val');
+    const sEl = document.getElementById('shop-gems-val');
+    if (mEl) mEl.innerText = val;
+    if (sEl) sEl.innerText = val;
+    updateDailyBonusUI();
+}
+
+function openShop(tab = 'mines') {
+    if (isUserBanned) return;
+    if (typeof activeDuel !== 'undefined' && activeDuel && activeDuel.game !== 'chess') {
+        if (!abortActiveDuel()) return;
+    }
+    if (tab === 'topup' && !TOPUP_ENABLED) tab = 'mines';
+    showScreen('shop-screen');
+    updateGemsUI();
+    const topupTab = document.getElementById('shoptab-topup');
+    if (topupTab) {
+        topupTab.innerText = TOPUP_ENABLED ? '💎 Курс' : '🔒 Курс';
+        topupTab.style.opacity = TOPUP_ENABLED ? '1' : '0.45';
+    }
+    switchShopTab(tab, true);
+}
+
+function switchShopTab(tab, silent = false) {
+    if (tab === 'topup' && !TOPUP_ENABLED) {
+        if (!silent) {
+            sfxClick();
+            doVibrate(30);
+            spawnFloatText(window.innerWidth / 2, 130, '🔒 Пополнение скоро откроется!', '#94a3b8');
+        }
+        return;
+    }
+    if (!silent) sfxClick();
+    currentShopTab = tab;
+    ['mines', 'tetris', 'mahjong', 'chess', 'profile', 'boosts', 'topup'].forEach(t => {
+        const el = document.getElementById('shoptab-' + t);
+        if (el) el.classList.toggle('active', t === tab);
+    });
+    renderShopItems();
+}
+
+function updateRateCalc() {
+    const inp = document.getElementById('rate-rub-input');
+    const out = document.getElementById('rate-gems-output');
+    if (!inp || !out) return;
+    const rub = Math.max(0, Math.floor(Number(inp.value) || 0));
+    out.innerText = `= ${rub * GEM_RATE_RUB} 💎`;
+}
+
+function setRatePreset(rub) {
+    sfxClick();
+    const inp = document.getElementById('rate-rub-input');
+    if (inp) {
+        inp.value = rub;
+        updateRateCalc();
+    }
+}
+
+function startCustomGemRubOrder() {
+    const inp = document.getElementById('rate-rub-input');
+    const rub = Math.max(10, Math.floor(Number(inp ? inp.value : 100) || 0));
+    const gems = rub * GEM_RATE_RUB;
+    sfxClick();
+    openRubPaymentModal({
+        type: 'gems',
+        title: `💎 ${gems} кристаллов`,
+        rub: rub,
+        gems: gems
+    });
+}
+
+function renderShopItems() {
+    const listEl = document.getElementById('shop-list');
+    if (!listEl) return;
+    listEl.innerHTML = '';
+
+    const vip = typeof isVipUser === 'function' && isVipUser();
+
+    if (currentShopTab === 'topup' && TOPUP_ENABLED) {
+        const vipPlansHtml = VIP_PLANS.map(p => `
+            <div style="display:flex; align-items:center; justify-content:space-between; background:rgba(251,191,36,0.12); border:1px solid rgba(251,191,36,0.45); border-radius:10px; padding:8px 10px; margin-bottom:6px;">
+                <div style="text-align:left;">
+                    <div style="font-size:0.84rem; font-weight:800; color:#fff;">${p.icon} ${p.title}</div>
+                    <div style="font-size:0.7rem; color:#fde68a;">${p.badge} • ×2 гемы, темы, музыка, корона</div>
+                </div>
+                <button class="shop-buy-btn" style="background:linear-gradient(135deg,#fbbf24,#f59e0b); color:#0f172a;" onclick="sfxClick(); openRubPaymentModal({ type: 'vip', title: '${p.title}', rub: ${p.priceRub}, days: ${p.days} });">
+                    ${p.priceRub} ₽
+                </button>
+            </div>
+        `).join('');
+
+        listEl.innerHTML = `
+            <div class="rate-card" style="border-color:#fbbf24; margin-bottom:10px;">
+                <div class="rate-banner" style="color:#fbbf24;">👑 VIP-СТАТУС ${vip ? `(${getVipStatusText()})` : ''}</div>
+                ${vipPlansHtml}
+            </div>
+            <div class="rate-card">
+                <div class="rate-banner">💱 ПОКУПКА ГЕМОВ: 1 ₽ = ${GEM_RATE_RUB} 💎</div>
+                <div style="font-size:0.78rem; color:#cbd5e1; text-align:center;">Введи сумму в рублях (мин. 10 ₽):</div>
+                <div class="rate-calc-row">
+                    <input type="number" id="rate-rub-input" class="rate-input" value="100" min="10" oninput="updateRateCalc()">
+                    <span style="font-weight:900; color:#94a3b8;">₽</span>
+                    <div id="rate-gems-output" class="rate-result">= ${100 * GEM_RATE_RUB} 💎</div>
+                </div>
+                <div class="rate-presets">
+                    <button class="rate-preset-btn" onclick="setRatePreset(50)">50 ₽</button>
+                    <button class="rate-preset-btn" onclick="setRatePreset(100)">100 ₽</button>
+                    <button class="rate-preset-btn" onclick="setRatePreset(250)">250 ₽</button>
+                    <button class="rate-preset-btn" onclick="setRatePreset(500)">500 ₽</button>
+                </div>
+                <button class="btn btn-green" style="width:100%;" onclick="startCustomGemRubOrder()">💳 КУПИТЬ ГЕМЫ НА КАРТУ</button>
+            </div>
+        `;
+        return;
+    }
+
+    const minVipPrice = (typeof VIP_PLANS !== 'undefined' && VIP_PLANS.length) ? VIP_PLANS[0].priceRub : 69;
+    const vipBanner = document.createElement('div');
+    vipBanner.className = 'shop-card' + (vip ? ' equipped' : '');
+    vipBanner.style.borderColor = '#fbbf24';
+    vipBanner.style.background = 'linear-gradient(135deg, rgba(251,191,36,0.16), rgba(15,23,42,0.92))';
+    vipBanner.innerHTML = `
+        <div class="shop-item-left">
+            <div class="shop-item-icon">👑</div>
+            <div style="min-width:0;">
+                <div class="shop-item-title" style="color:#fbbf24;">${vip ? getVipStatusText() : 'VIP-СТАТУС GAME HUB'}</div>
+                <div class="shop-item-desc">${vip ? '×2 гемы, все темы, своя музыка и статус в топе активны!' : '7 дней (69₽) • 30 дней (249₽) • Навсегда (499₽)'}</div>
+            </div>
+        </div>
+        <button class="shop-buy-btn ${vip ? 'is-equipped' : ''}" onclick="sfxClick(); showVipRequiredModal('VIP-статус');">${vip ? '✅ Активен' : `от ${minVipPrice} ₽`}</button>
+    `;
+    listEl.appendChild(vipBanner);
+
+    const items = SHOP_CATALOG.filter(x => x.cat === currentShopTab);
+    const gems = getGems();
+
+    items.forEach(item => {
+        const isOwned = ecoState.owned.includes(item.id);
+        const isEquippable = [
+            'mines_theme', 'mines_flag', 'tetris_skin', 'mj_theme',
+            'chess_board', 'chess_fx', 'chess_acc',
+            'badge', 'lb_glow'
+        ].includes(item.type);
+        const isEquipped = isEquippable && ecoState.equipped[item.type] === item.id;
+
+        const card = document.createElement('div');
+        card.className = 'shop-card' + (isEquipped ? ' equipped' : isOwned ? ' owned' : '');
+
+        let btnText = `💎 ${item.price}`;
+        let btnClass = 'shop-buy-btn';
+
+        if (item.type === 'consumable') {
+            if (gems < item.price) btnClass += ' cant-afford';
+            if (item.id === 'boost_zx2' && getZLabBoostRemaining() > 0) {
+                const minsLeft = Math.ceil(getZLabBoostRemaining() / 60000);
+                btnText = `⚡ +15м (${minsLeft}м)`;
+            }
+        } else if (isEquipped) {
+            btnText = '✅ Надето';
+            btnClass += ' is-equipped';
+        } else if (isOwned) {
+            btnText = item.type === 'permanent' ? '✅ Куплено' : 'Надеть';
+            btnClass += ' can-equip';
+        } else if (gems < item.price) {
+            btnClass += ' cant-afford';
+        }
+
+        card.innerHTML = `
+            <div class="shop-item-left">
+                <div class="shop-item-icon">${item.icon}</div>
+                <div style="min-width:0;">
+                    <div class="shop-item-title">${item.name}</div>
+                    <div class="shop-item-desc">${item.desc}</div>
+                </div>
+            </div>
+            <button class="${btnClass}" onclick="buyOrEquipShopItem('${item.id}')">${btnText}</button>
+        `;
+        listEl.appendChild(card);
+    });
+}
+
+function buyOrEquipShopItem(id) {
+    const item = SHOP_CATALOG.find(x => x.id === id);
+    if (!item) return;
+
+    const isOwned = ecoState.owned.includes(item.id);
+    const isEquippable = [
+        'mines_theme', 'mines_flag', 'tetris_skin', 'mj_theme',
+        'chess_board', 'chess_fx', 'chess_acc',
+        'badge', 'lb_glow'
+    ].includes(item.type);
+
+    if (isOwned && item.type !== 'consumable') {
+        if (isEquippable) {
+            ecoState.equipped[item.type] = item.id;
+            saveEcoState();
+            sfxPop();
+            doVibrate(20);
+            renderShopItems();
+            if ((item.type === 'badge' || item.type === 'lb_glow') && typeof syncExistingRecords === 'function') {
+                syncExistingRecords();
+            }
+        }
+        return;
+    }
+
+    if (getGems() < item.price) {
+        sfxAlarm();
+        doVibrate(120);
+        spawnFloatText(window.innerWidth / 2, window.innerHeight / 2, '💎 Не хватает кристаллов!', '#ef4444');
+        return;
+    }
+
+    ecoState.gems = getGems() - item.price;
+
+    if (item.type === 'consumable') {
+        if (item.id === 'boost_zx2') {
+            const base = Math.max(Date.now(), ecoState.zBoostUntil || 0);
+            ecoState.zBoostUntil = base + 15 * 60 * 1000;
+        }
+    } else {
+        ecoState.owned.push(item.id);
+        if (isEquippable) {
+            ecoState.equipped[item.type] = item.id;
+        }
+    }
+
+    saveEcoState();
+    syncGemsToCloud();
+    if ((item.type === 'badge' || item.type === 'lb_glow') && typeof syncExistingRecords === 'function') {
+        syncExistingRecords();
+    }
+
+    sfxVictory();
+    doVibrate([40, 30, 80]);
+    spawnBurst(window.innerWidth / 2, window.innerHeight / 2, 30, ['#e879f9', '#fbbf24', '#4ade80']);
+    renderShopItems();
+}
+
+async function manualSyncGems() {
+    if (isUserBanned || isManualGemSyncing) return;
+    isManualGemSyncing = true;
+    sfxClick();
+    doVibrate(20);
+    spawnFloatText(window.innerWidth / 2, 105, '⏳ Проверяем баланс и VIP...', '#38bdf8');
+    await syncGemsToCloud(true);
+    isManualGemSyncing = false;
+}
+
+async function syncGemsToCloud(isManual = false) {
+    if (!cloudSyncReady && !isManual) return;
+    const baseUrl = FIREBASE_URL.replace(/\/+$/, '');
+    if (!baseUrl.startsWith('http')) return;
+    try {
+        const res = await fetchWithTimeout(`${baseUrl}/players/${myPlayerId}.json?t=${Date.now()}`, { cache: 'no-store' }, 8000);
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const existing = (await res.json()) || {};
+        const cloudIssued = Number(existing.issuedGems) || 0;
+        const cloudGems = Number(existing.gems) || 0;
+
+        // Защита от обнуления: если локальный баланс 0 и сейв ещё не синхронизировался, берём баланс из базы
+        if (getGems() === 0 && getLocalSaveTimestamp() === 0 && cloudGems > 0) {
+            ecoState.gems = cloudGems;
+            ecoState.claimedIssuedGems = cloudIssued;
+            saveEcoState();
+        }
+
+        if (existing.vipUntil !== undefined && Number(existing.vipUntil) !== vipUntilTs) {
+            const wasVip = isVipUser();
+            setVipUntil(Number(existing.vipUntil) || 0, false);
+            if (!wasVip && isVipUser()) {
+                sfxVictory();
+                doVibrate([50, 30, 90]);
+                spawnFloatText(window.innerWidth / 2, 145, '👑 VIP-СТАТУС АКТИВИРОВАН!', '#fbbf24');
+            }
+            if (typeof syncExistingRecords === 'function') syncExistingRecords();
+        }
+
+        if (cloudIssued !== (ecoState.claimedIssuedGems || 0)) {
+            const diff = cloudIssued - (ecoState.claimedIssuedGems || 0);
+            ecoState.gems = Math.max(0, getGems() + diff);
+            ecoState.claimedIssuedGems = cloudIssued;
+            saveEcoState();
+            if (diff > 0) {
+                sfxVictory();
+                doVibrate([40, 30, 80]);
+                spawnFloatText(window.innerWidth / 2, 120, `💎 Зачислено +${diff} 💎!`, '#4ade80');
+            } else if (isManual) {
+                spawnFloatText(window.innerWidth / 2, 120, '✅ Баланс обновлён', '#4ade80');
+            }
+        } else if (isManual) {
+            sfxPop();
+            spawnFloatText(window.innerWidth / 2, 120, '✅ Баланс и статус обновлены', '#4ade80');
+        }
+
+        cloudSyncReady = true;
+
+        await fetchWithTimeout(`${baseUrl}/players/${myPlayerId}.json`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
-
-        if (chessState.moveCount === 1 && typeof sendDuelTelegramNotification === 'function') {
-            const betStr = bet > 0 ? `\nСтавка: <b>${bet} 💎</b> (банк ${bank} 💎)` : '';
-            sendDuelTelegramNotification(
-                duel.toId,
-                `♟️ <b>Вызов в Онлайн-Шахматы!</b>\n\nИгрок <b>${duel.fromName}</b> сделал первый ход и ждёт тебя!${betStr}\n\nЗаходи в Game Hub → ⚔️ Дуэли!`
-            );
+            body: JSON.stringify({
+                name: tgUser.name,
+                tag: tgUser.username,
+                gems: getGems(),
+                issuedGems: cloudIssued,
+                vipUntil: vipUntilTs,
+                isVip: isVipUser(),
+                badge: getEquippedBadgeText(),
+                lbStyle: getEquippedLbStyle(),
+                lastSeen: Date.now()
+            })
+        }, 8000);
+    } catch {
+        if (isManual) {
+            sfxAlarm();
+            doVibrate(140);
+            spawnFloatText(window.innerWidth / 2, 120, '⚠️ Нет связи с базой (включи VPN)', '#ef4444');
         }
-    } catch {}
-
-    isSyncingOnlineMove = false;
-    updateChessStatus();
-
-    if (isGameEnd) {
-        stopChess();
-        showFinishedOnlineChessResult({ ...payload, winnerId });
-    } else if (!chessOnlinePollTimer) {
-        chessOnlinePollTimer = setInterval(pollOnlineChessState, 4000);
     }
 }
 
-function undoChessMove() {
-    if (!chessState || chessState.mode === 'online' || chessState.aiThinking || chessState.history.length === 0) return;
-    sfxClick();
-
-    let steps = 1;
-    if (chessState.mode !== 'pvp' && chessState.turn === 'w' && chessState.history.length >= 2) {
-        steps = 2;
-    }
-
-    let snap = null;
-    for (let i = 0; i < steps; i++) {
-        if (chessState.history.length > 0) snap = chessState.history.pop();
-    }
-    if (!snap) return;
-
-    chessState.board = snap.board;
-    chessState.turn = snap.turn;
-    chessState.castling = snap.castling;
-    chessState.epTarget = snap.epTarget;
-    chessState.lastMove = snap.lastMove;
-    chessState.capturedW = snap.capturedW;
-    chessState.capturedB = snap.capturedB;
-    chessState.selected = null;
-    chessState.legalMoves = [];
-    chessState.gameOver = false;
-
-    const resOverlay = document.getElementById('chess-result-overlay');
-    if (resOverlay) resOverlay.classList.remove('active');
-
-    renderChessBoard();
-    updateChessStatus();
-}
-
-// ==================== ИИ ШАХМАТНОГО БОТА ====================
-function evaluateChessBoard(board) {
-    let score = 0;
-    for (let r = 0; r < 8; r++) {
-        for (let c = 0; c < 8; c++) {
-            const p = board[r][c];
-            if (!p) continue;
-            const isW = p === p.toUpperCase();
-            const type = p.toLowerCase();
-            const base = PIECE_VALUES[type] || 0;
-            const tableR = isW ? r : 7 - r;
-
-            let pos = 0;
-            if (type === 'p') pos = PST_PAWN[tableR][c];
-            else if (type === 'n') pos = PST_KNIGHT[tableR][c];
-            else if (type === 'b' || type === 'q') pos = PST_CENTER[tableR][c];
-
-            score += isW ? (base + pos) : -(base + pos);
-        }
-    }
-    return score;
-}
-
-function minimaxChess(state, depth, alpha, beta, isMax) {
-    const color = isMax ? 'w' : 'b';
-    const moves = getAllLegalMoves(state, color);
-
-    if (moves.length === 0) {
-        if (isKingInCheck(state.board, color)) {
-            return isMax ? (-99999 - depth) : (99999 + depth);
-        }
-        return 0;
-    }
-
-    if (depth === 0) {
-        return evaluateChessBoard(state.board);
-    }
-
-    moves.sort((a, b) => {
-        const capA = state.board[a.toR][a.toC] ? 1 : 0;
-        const capB = state.board[b.toR][b.toC] ? 1 : 0;
-        return capB - capA;
-    });
-
-    if (isMax) {
-        let best = -Infinity;
-        for (const m of moves) {
-            const next = applyMoveToState(state, m, 'q');
-            const val = minimaxChess(next, depth - 1, alpha, beta, false);
-            if (val > best) best = val;
-            if (best > alpha) alpha = best;
-            if (beta <= alpha) break;
-        }
-        return best;
-    } else {
-        let best = Infinity;
-        for (const m of moves) {
-            const next = applyMoveToState(state, m, 'q');
-            const val = minimaxChess(next, depth - 1, alpha, beta, true);
-            if (val < best) best = val;
-            if (best < beta) beta = best;
-            if (beta <= alpha) break;
-        }
-        return best;
-    }
-}
-
-function makeChessAiMove() {
-    if (!chessState || chessState.gameOver) return;
-    const moves = getAllLegalMoves(chessState, 'b');
-    chessState.aiThinking = false;
-
-    if (moves.length === 0) {
-        chessState.gameOver = true;
-        handleChessGameEnd(isKingInCheck(chessState.board, 'b'));
-        return;
-    }
-
-    let chosen = moves[0];
-
-    if (chessState.mode === 'easy') {
-        if (Math.random() < 0.65) {
-            chosen = moves[Math.floor(Math.random() * moves.length)];
-        } else {
-            let bestVal = Infinity;
-            for (const m of moves) {
-                const next = applyMoveToState(chessState, m, 'q');
-                const val = evaluateChessBoard(next.board) + (Math.random() * 40 - 20);
-                if (val < bestVal) { bestVal = val; chosen = m; }
+function setupVictoryObservers() {
+    const minesOverlay = document.getElementById('mines-result-overlay');
+    if (minesOverlay) {
+        new MutationObserver(() => {
+            if (minesOverlay.classList.contains('active')) {
+                const titleEl = document.getElementById('mines-res-title');
+                const badgeEl = document.getElementById('mines-res-badge');
+                if (titleEl && titleEl.innerText.includes('ПОБЕДА')) {
+                    const diff = document.getElementById('mines-difficulty')?.value || '8-10';
+                    const baseReward = diff === '12-25' ? 35 : diff === '10-16' ? 20 : 10;
+                    const vip = typeof isVipUser === 'function' && isVipUser();
+                    const shownReward = vip ? baseReward * VIP_GEM_MULT : baseReward;
+                    addGems(baseReward);
+                    if (badgeEl && !badgeEl.innerText.includes('💎')) {
+                        badgeEl.innerText += ` • +${shownReward} 💎${vip ? ' 👑' : ''}`;
+                    }
+                }
             }
-        }
-    } else {
-        const depth = chessState.mode === 'hard' ? 3 : 2;
-        let bestVal = Infinity;
-        let bestList = [];
-
-        for (const m of moves) {
-            const next = applyMoveToState(chessState, m, 'q');
-            const val = minimaxChess(next, depth - 1, -Infinity, Infinity, true);
-            if (val < bestVal) {
-                bestVal = val;
-                bestList = [m];
-            } else if (val === bestVal) {
-                bestList.push(m);
-            }
-        }
-        chosen = bestList[Math.floor(Math.random() * bestList.length)] || moves[0];
+        }).observe(minesOverlay, { attributes: true, attributeFilter: ['class'] });
     }
 
-    executeChessMove(chosen, 'q');
-}
-
-// ==================== ЗАВЕРШЕНИЕ И ОТРИСОВКА ====================
-function handleChessGameEnd(isCheckmate) {
-    const overlay = document.getElementById('chess-result-overlay');
-    const titleEl = document.getElementById('chess-res-title');
-    const subEl = document.getElementById('chess-res-sub');
-    const badgeEl = document.getElementById('chess-res-badge');
-    if (!overlay || !titleEl) return;
-
-    const winner = chessState.turn === 'w' ? 'b' : 'w';
-    const vip = typeof isVipUser === 'function' && isVipUser();
-    const mult = vip && typeof VIP_GEM_MULT !== 'undefined' ? VIP_GEM_MULT : 1;
-
-    if (!isCheckmate) {
-        sfxPop();
-        titleEl.innerText = '🤝 НИЧЬЯ (ПАТ)';
-        titleEl.style.color = '#38bdf8';
-        subEl.innerText = 'Ходов больше нет, но король не под шахом.';
-        badgeEl.innerText = 'Партия завершена вничью';
-    } else if (chessState.mode === 'pvp') {
-        sfxVictory();
-        spawnConfettiCannon(true);
-        spawnConfettiCannon(false);
-        titleEl.innerText = winner === 'w' ? '🏆 ПОБЕДА БЕЛЫХ!' : '🏆 ПОБЕДА ЧЁРНЫХ!';
-        titleEl.style.color = '#fbbf24';
-        subEl.innerText = 'Отличный мат в игре на двоих!';
-        badgeEl.innerText = 'Режим на 2 игроков';
-    } else if (winner === 'w') {
-        const baseReward = chessState.mode === 'hard' ? 50 : chessState.mode === 'medium' ? 30 : 15;
-        const shownReward = baseReward * mult;
-        if (typeof addGems === 'function') addGems(baseReward);
-
-        sfxVictory();
-        doVibrate([50, 30, 90]);
-        spawnConfettiCannon(true);
-        spawnConfettiCannon(false);
-
-        const diffNames = { easy: 'Новичок', medium: 'Любитель', hard: 'Мастер' };
-        titleEl.innerText = '👑 ШАХ И МАТ! ПОБЕДА';
-        titleEl.style.color = '#4ade80';
-        subEl.innerText = `Ты обыграл бота (${diffNames[chessState.mode]})!`;
-        badgeEl.innerText = `Награда: +${shownReward} 💎${vip ? ' (👑 VIP ×2)' : ''}`;
-    } else {
-        sfxExplosion();
-        triggerShake(true);
-        doVibrate(160);
-        titleEl.innerText = '💀 ТЕБЕ ПОСТАВИЛИ МАТ';
-        titleEl.style.color = '#ef4444';
-        subEl.innerText = 'Попробуй ещё раз или смени тактику!';
-        badgeEl.innerText = 'Поражение';
-    }
-
-    overlay.classList.add('active');
-}
-
-function updateChessStatus() {
-    const statusEl = document.getElementById('chess-status-text');
-    const capWEl = document.getElementById('chess-cap-w');
-    const capBEl = document.getElementById('chess-cap-b');
-    if (!statusEl || !chessState) return;
-
-    if (capWEl) capWEl.innerText = chessState.capturedW.map(p => CHESS_SYMBOLS[p]).join('');
-    if (capBEl) capBEl.innerText = chessState.capturedB.map(p => CHESS_SYMBOLS[p]).join('');
-
-    if (chessState.gameOver) {
-        statusEl.innerText = '🏁 Партия окончена';
-        statusEl.style.color = '#fbbf24';
-        return;
-    }
-    if (chessState.aiThinking) {
-        statusEl.innerText = '🤖 Бот обдумывает ход...';
-        statusEl.style.color = '#38bdf8';
-        return;
-    }
-
-    const inCheck = isKingInCheck(chessState.board, chessState.turn);
-
-    if (chessState.mode === 'online') {
-        const isMyTurn = chessState.turn === chessState.myColor;
-        const sideLabel = chessState.myColor === 'w' ? '⚪ Белые' : '🔴 Чёрные';
-        if (isMyTurn) {
-            statusEl.innerText = inCheck ? `⚠️ ШАХ! Твой ход (${sideLabel})` : `🟢 Твой ход (${sideLabel})`;
-            statusEl.style.color = inCheck ? '#fbbf24' : '#4ade80';
-        } else {
-            statusEl.innerText = `⏳ Ход соперника...`;
-            statusEl.style.color = '#94a3b8';
-        }
-        return;
-    }
-
-    const turnLabel = chessState.turn === 'w' ? '⚪ Ход белых' : (chessState.mode === 'pvp' ? '🔴 Ход чёрных' : '🤖 Ход бота');
-    statusEl.innerText = inCheck ? `⚠️ ШАХ! ${turnLabel}` : turnLabel;
-    statusEl.style.color = inCheck ? '#fbbf24' : '#e2e8f0';
-}
-
-function renderChessBoard() {
-    injectChessStyles();
-    const boardEl = document.getElementById('chess-board');
-    if (!boardEl || !chessState) return;
-
-    const boardSkin = typeof getEquippedChessBoard === 'function' ? getEquippedChessBoard() : 'cboard_default';
-    boardEl.className = 'chess-board ' + boardSkin;
-    boardEl.innerHTML = '';
-
-    const accType = typeof getEquippedChessAcc === 'function' ? getEquippedChessAcc() : 'cacc_none';
-    const flip = chessState.mode === 'online' && chessState.myColor === 'b';
-
-    const wKing = isKingInCheck(chessState.board, 'w') ? findKing(chessState.board, 'w') : null;
-    const bKing = isKingInCheck(chessState.board, 'b') ? findKing(chessState.board, 'b') : null;
-
-    for (let visR = 0; visR < 8; visR++) {
-        for (let visC = 0; visC < 8; visC++) {
-            const r = flip ? 7 - visR : visR;
-            const c = flip ? 7 - visC : visC;
-
-            const cell = document.createElement('div');
-            const isLight = (r + c) % 2 === 0;
-            cell.className = 'chess-cell ' + (isLight ? 'light' : 'dark');
-
-            if (chessState.selected && chessState.selected.r === r && chessState.selected.c === c) {
-                cell.classList.add('selected');
+    const mjOverlay = document.getElementById('mj-victory-overlay');
+    if (mjOverlay) {
+        new MutationObserver(() => {
+            if (mjOverlay.classList.contains('active')) {
+                const auraEl = document.getElementById('victory-aura');
+                const vip = typeof isVipUser === 'function' && isVipUser();
+                const shownReward = vip ? 15 * VIP_GEM_MULT : 15;
+                addGems(15);
+                if (auraEl && !auraEl.innerText.includes('💎')) {
+                    auraEl.innerText += ` • +${shownReward} 💎${vip ? ' 👑' : ''}`;
+                }
             }
-            if (chessState.lastMove && (
-                (chessState.lastMove.fromR === r && chessState.lastMove.fromC === c) ||
-                (chessState.lastMove.toR === r && chessState.lastMove.toC === c)
-            )) {
-                cell.classList.add('last-move');
-            }
-            if ((wKing && wKing.r === r && wKing.c === c) || (bKing && bKing.r === r && bKing.c === c)) {
-                cell.classList.add('in-check');
-            }
-
-            const moveHint = chessState.legalMoves.find(m => m.toR === r && m.toC === c);
-            if (moveHint) {
-                cell.classList.add(chessState.board[r][c] || moveHint.enPassant ? 'valid-capture' : 'valid-move');
-            }
-
-            const p = chessState.board[r][c];
-            if (p) {
-                const span = document.createElement('span');
-                const isW = pieceColor(p) === 'w';
-                span.className = (isW ? 'chess-piece-w' : 'chess-piece-b') + (accType !== 'cacc_none' ? ' ' + accType : '');
-                span.innerText = CHESS_SYMBOLS[p];
-                cell.appendChild(span);
-            }
-
-            cell.onclick = () => onChessCellClick(r, c);
-            boardEl.appendChild(cell);
-        }
+        }).observe(mjOverlay, { attributes: true, attributeFilter: ['class'] });
     }
 }
+
+applyMahjongTheme();
+applyMinesTheme();
+initTgProfile();
+setupVictoryObservers();
