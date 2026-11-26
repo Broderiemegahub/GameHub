@@ -455,6 +455,9 @@ function stopAllGames() {
     if (typeof victoryFxTimer !== 'undefined' && victoryFxTimer) {
         clearInterval(victoryFxTimer);
         victoryFxTimer = null;
+        const chessOverlay = document.getElementById('chess-result-overlay');
+    if (chessOverlay) chessOverlay.classList.remove('active');
+    if (typeof stopChess === 'function') stopChess();
     }
     document.getElementById('mj-victory-overlay').classList.remove('active');
     document.getElementById('mines-result-overlay').classList.remove('active');
