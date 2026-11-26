@@ -23,6 +23,24 @@ const SHOP_CATALOG = [
     { id: 'mj_jade',    cat: 'mahjong', icon: '🟢', name: 'Императорский нефрит', desc: 'Изумрудные фишки с золотым кантом', price: 850, type: 'mj_theme' },
     { id: 'mj_royal',   cat: 'mahjong', icon: '🟥', name: 'Королевский рубин',    desc: 'Бордово-золотой премиум стиль', price: 1300, type: 'mj_theme' },
 
+    // Шахматы: скины досок, анимации взятия и аксессуары фигур
+    { id: 'cboard_default', cat: 'chess', icon: '♟️', name: 'Доска: Кибер-ночь',      desc: 'Классическая тёмно-синяя доска', price: 0, type: 'chess_board' },
+    { id: 'cboard_emerald', cat: 'chess', icon: '🟩', name: 'Доска: Изумруд',         desc: 'Турнирная зелёно-кремовая клетка', price: 500, type: 'chess_board' },
+    { id: 'cboard_marble',  cat: 'chess', icon: '🏛️', name: 'Доска: Мрамор',          desc: 'Античный светло-графитовый камень', price: 900, type: 'chess_board' },
+    { id: 'cboard_gold',    cat: 'chess', icon: '🟨', name: 'Доска: Золотой дворец',  desc: 'Роскошные золотые и обсидиановые клетки', price: 1400, type: 'chess_board' },
+    { id: 'cboard_cyber',   cat: 'chess', icon: '🟪', name: 'Доска: Киберпанк',       desc: 'Неоновая фиолетово-бирюзовая арена', price: 1800, type: 'chess_board' },
+
+    { id: 'cfx_default',    cat: 'chess', icon: '💥', name: 'Взятие: Классика',       desc: 'Стандартные искры при съедении фигуры', price: 0, type: 'chess_fx' },
+    { id: 'cfx_lightning',  cat: 'chess', icon: '⚡', name: 'Взятие: Удар молнии',    desc: 'Электрический разряд ⚡ при взятии фигуры', price: 450, type: 'chess_fx' },
+    { id: 'cfx_fire',       cat: 'chess', icon: '🔥', name: 'Взятие: Огненный вихрь', desc: 'Вспышка пламени 🔥 на клетке противника', price: 800, type: 'chess_fx' },
+    { id: 'cfx_ice',        cat: 'chess', icon: '❄️', name: 'Взятие: Ледяной раскол', desc: 'Крио-осколки ❄️ и морозная вспышка', price: 1100, type: 'chess_fx' },
+    { id: 'cfx_explosion',  cat: 'chess', icon: '☢️', name: 'Взятие: Плазма-взрыв',   desc: 'Мощный взрыв с тряской экрана ☢️', price: 1600, type: 'chess_fx' },
+
+    { id: 'cacc_none',      cat: 'chess', icon: '▫️', name: 'Фигуры: Без аксессуаров',desc: 'Стандартный вид шахматных фигур', price: 0, type: 'chess_acc' },
+    { id: 'cacc_aura',      cat: 'chess', icon: '✨', name: 'Аксессуар: Неон-аура',   desc: 'Яркое двойное свечение вокруг всех фигур', price: 600, type: 'chess_acc' },
+    { id: 'cacc_runes',     cat: 'chess', icon: '🔮', name: 'Аксессуар: Боевые руны', desc: 'Магическое кольцо рун под каждой фигурой', price: 1200, type: 'chess_acc' },
+    { id: 'cacc_crown',     cat: 'chess', icon: '👑', name: 'Аксессуар: Короны',      desc: 'Золотая корона 👑 и венец над фигурами', price: 2000, type: 'chess_acc' },
+
     // Значки и подсветка в топе
     { id: 'badge_none',   cat: 'profile', icon: '👤', name: 'Без значка',      desc: 'Обычное отображение имени', price: 0, type: 'badge', badgeText: '' },
     { id: 'badge_fire',   cat: 'profile', icon: '🔥', name: 'Значок Огонёк',   desc: 'Добавляет 🔥 рядом с ником в топе', price: 250, type: 'badge', badgeText: '🔥' },
@@ -47,12 +65,19 @@ function getDefaultEcoState() {
     return {
         gems: 0,
         claimedIssuedGems: 0,
-        owned: ['mskin_default', 'mflag_default', 'tskin_default', 'mj_default', 'badge_none', 'glow_default'],
+        owned: [
+            'mskin_default', 'mflag_default', 'tskin_default', 'mj_default',
+            'cboard_default', 'cfx_default', 'cacc_none',
+            'badge_none', 'glow_default'
+        ],
         equipped: {
             mines_theme: 'mskin_default',
             mines_flag: 'mflag_default',
             tetris_skin: 'tskin_default',
             mj_theme: 'mj_default',
+            chess_board: 'cboard_default',
+            chess_fx: 'cfx_default',
+            chess_acc: 'cacc_none',
             badge: 'badge_none',
             lb_glow: 'glow_default'
         },
@@ -93,6 +118,7 @@ function applyRemoteEcoState(remoteEco) {
     updateGemsUI();
     applyMahjongTheme();
     applyMinesTheme();
+    if (typeof renderChessBoard === 'function') renderChessBoard();
 }
 
 function saveEcoState() {
@@ -100,6 +126,7 @@ function saveEcoState() {
     updateGemsUI();
     applyMahjongTheme();
     applyMinesTheme();
+    if (typeof renderChessBoard === 'function') renderChessBoard();
     scheduleCloudSave();
 }
 
@@ -135,6 +162,18 @@ function hasShopItem(id) {
 
 function getZLabBoostRemaining() {
     return Math.max(0, (ecoState.zBoostUntil || 0) - Date.now());
+}
+
+function getEquippedChessBoard() {
+    return ecoState.equipped.chess_board || 'cboard_default';
+}
+
+function getEquippedChessFx() {
+    return ecoState.equipped.chess_fx || 'cfx_default';
+}
+
+function getEquippedChessAcc() {
+    return ecoState.equipped.chess_acc || 'cacc_none';
 }
 
 function getMinesFlagIcon() {
@@ -249,7 +288,7 @@ function updateGemsUI() {
 
 function openShop(tab = 'mines') {
     if (isUserBanned) return;
-    if (typeof activeDuel !== 'undefined' && activeDuel) {
+    if (typeof activeDuel !== 'undefined' && activeDuel && activeDuel.game !== 'chess') {
         if (!abortActiveDuel()) return;
     }
     if (tab === 'topup' && !TOPUP_ENABLED) tab = 'mines';
@@ -274,7 +313,7 @@ function switchShopTab(tab, silent = false) {
     }
     if (!silent) sfxClick();
     currentShopTab = tab;
-    ['mines', 'tetris', 'mahjong', 'profile', 'boosts', 'topup'].forEach(t => {
+    ['mines', 'tetris', 'mahjong', 'chess', 'profile', 'boosts', 'topup'].forEach(t => {
         const el = document.getElementById('shoptab-' + t);
         if (el) el.classList.toggle('active', t === tab);
     });
@@ -378,7 +417,11 @@ function renderShopItems() {
 
     items.forEach(item => {
         const isOwned = ecoState.owned.includes(item.id);
-        const isEquippable = ['mines_theme', 'mines_flag', 'tetris_skin', 'mj_theme', 'badge', 'lb_glow'].includes(item.type);
+        const isEquippable = [
+            'mines_theme', 'mines_flag', 'tetris_skin', 'mj_theme',
+            'chess_board', 'chess_fx', 'chess_acc',
+            'badge', 'lb_glow'
+        ].includes(item.type);
         const isEquipped = isEquippable && ecoState.equipped[item.type] === item.id;
 
         const card = document.createElement('div');
@@ -422,7 +465,11 @@ function buyOrEquipShopItem(id) {
     if (!item) return;
 
     const isOwned = ecoState.owned.includes(item.id);
-    const isEquippable = ['mines_theme', 'mines_flag', 'tetris_skin', 'mj_theme', 'badge', 'lb_glow'].includes(item.type);
+    const isEquippable = [
+        'mines_theme', 'mines_flag', 'tetris_skin', 'mj_theme',
+        'chess_board', 'chess_fx', 'chess_acc',
+        'badge', 'lb_glow'
+    ].includes(item.type);
 
     if (isOwned && item.type !== 'consumable') {
         if (isEquippable) {
