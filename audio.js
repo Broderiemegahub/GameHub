@@ -15,6 +15,7 @@ customFileInput.style.display = 'none';
 document.body.appendChild(customFileInput);
 
 customFileInput.addEventListener('change', (e) => {
+    if (typeof isVipUser === 'function' && !isVipUser()) return;
     const file = e.target.files && e.target.files[0];
     if (!file) return;
     if (customAudioUrl) URL.revokeObjectURL(customAudioUrl);
@@ -27,12 +28,12 @@ customFileInput.addEventListener('change', (e) => {
 });
 
 const MUSIC_TRACKS = [
-    { id: 'mc_sweden',   title: '🟩 Minecraft — Sweden',       desc: 'C418 • Мягкое атмосферное пианино' },
-    { id: 'mc_wethands', title: '🟦 Minecraft — Wet Hands',    desc: 'C418 • Ностальгическая мелодия' },
-    { id: 'roblox_chill',title: '🟥 Roblox — Classic Lobby',   desc: 'Ламповый чилл из старого лобби' },
-    { id: 'space',       title: '🌌 Interstellar Vibe',        desc: 'Космическое арпеджио и эхо' },
-    { id: 'custom',      title: '🎧 Свой MP3 трек',            desc: customAudioName },
-    { id: 'none',        title: '🔇 Без музыки',               desc: 'Только звуковые эффекты' }
+    { id: 'mc_sweden',    title: '🟩 Minecraft — Sweden',       desc: 'C418 • Мягкое атмосферное пианино', vip: false },
+    { id: 'mc_wethands',  title: '🟦 Minecraft — Wet Hands',    desc: 'C418 • Ностальгическая мелодия',     vip: true },
+    { id: 'roblox_chill', title: '🟥 Roblox — Classic Lobby',   desc: 'Ламповый чилл из старого лобби',    vip: true },
+    { id: 'space',        title: '🌌 Interstellar Vibe',        desc: 'Космическое арпеджио и эхо',         vip: true },
+    { id: 'custom',       title: '🎧 Свой MP3 трек',            desc: customAudioName,                      vip: true },
+    { id: 'none',         title: '🔇 Без музыки',               desc: 'Только звуковые эффекты',            vip: false }
 ];
 
 let audioPrefs = loadAudioPrefs();
@@ -42,7 +43,10 @@ function loadAudioPrefs() {
         const raw = localStorage.getItem('gameHubAudio');
         if (raw) {
             const parsed = JSON.parse(raw);
-            if (!MUSIC_TRACKS.some(t => t.id === parsed.track)) parsed.track = 'mc_sweden';
+            const found = MUSIC_TRACKS.find(t => t.id === parsed.track);
+            if (!found || (found.vip && typeof isVipUser === 'function' && !isVipUser())) {
+                parsed.track = 'mc_sweden';
+            }
             return parsed;
         }
     } catch {}
@@ -171,6 +175,12 @@ function sfxAlarm() {
 
 function startBgm() {
     stopBgm();
+    const currentTrackObj = MUSIC_TRACKS.find(t => t.id === audioPrefs.track);
+    if (currentTrackObj && currentTrackObj.vip && typeof isVipUser === 'function' && !isVipUser()) {
+        audioPrefs.track = 'mc_sweden';
+        saveAudioPrefs();
+    }
+
     if (audioPrefs.track === 'none' || audioPrefs.bgmVol <= 0.01) return;
 
     if (audioPrefs.track === 'custom') {
@@ -224,14 +234,37 @@ function stopBgm() {
 }
 
 function renderTrackList() {
-    const list = document.getElementById('track-list'); list.innerHTML = '';
+    const list = document.getElementById('track-list');
+    if (!list) return;
+    list.innerHTML = '';
+    const vip = typeof isVipUser === 'function' && isVipUser();
+
     MUSIC_TRACKS.forEach(tr => {
-        const isAct = audioPrefs.track === tr.id;
+        const isLocked = tr.vip && !vip;
+        const isAct = !isLocked && audioPrefs.track === tr.id;
         const desc = tr.id === 'custom' ? customAudioName : tr.desc;
+        const vipLabel = tr.vip ? ' <span style="font-size:0.7rem;color:#fbbf24;font-weight:900;">👑 VIP</span>' : '';
+
         const el = document.createElement('div');
         el.className = 'track-card' + (isAct ? ' active' : '');
-        el.innerHTML = `<div class="track-info"><div class="track-title">${tr.title}</div><div class="track-desc">${desc}</div></div><div class="track-status">${isAct ? '🔊' : '▶️'}</div>`;
+        if (isLocked) el.style.opacity = '0.72';
+
+        el.innerHTML = `
+            <div class="track-info">
+                <div class="track-title">${tr.title}${vipLabel}</div>
+                <div class="track-desc">${desc}</div>
+            </div>
+            <div class="track-status">${isLocked ? '🔒' : (isAct ? '🔊' : '▶️')}</div>
+        `;
         el.onclick = () => {
+            if (isLocked) {
+                sfxAlarm();
+                doVibrate(40);
+                if (typeof showVipRequiredModal === 'function') {
+                    showVipRequiredModal('Дополнительная музыка и свой MP3');
+                }
+                return;
+            }
             if (tr.id === 'custom' && isAct) { customFileInput.click(); return; }
             audioPrefs.track = tr.id; saveAudioPrefs(); sfxClick(); startBgm(); renderTrackList();
         };
