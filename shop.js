@@ -298,13 +298,17 @@ function setRatePreset(rub) {
     }
 }
 
-function copyPlayerTagForTopup() {
-    sfxPop();
-    const ident = (rawTgUser && rawTgUser.username) ? '@' + rawTgUser.username : myPlayerId;
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(ident).catch(() => {});
-    }
-    spawnFloatText(window.innerWidth / 2, window.innerHeight / 2, `📋 Скопировано: ${ident}`, '#4ade80');
+function startCustomGemRubOrder() {
+    const inp = document.getElementById('rate-rub-input');
+    const rub = Math.max(10, Math.floor(Number(inp ? inp.value : 100) || 0));
+    const gems = rub * GEM_RATE_RUB;
+    sfxClick();
+    openRubPaymentModal({
+        type: 'gems',
+        title: `💎 ${gems} кристаллов`,
+        rub: rub,
+        gems: gems
+    });
 }
 
 function renderShopItems() {
@@ -312,18 +316,31 @@ function renderShopItems() {
     if (!listEl) return;
     listEl.innerHTML = '';
 
+    const vip = typeof isVipUser === 'function' && isVipUser();
+
     if (currentShopTab === 'topup' && TOPUP_ENABLED) {
-        const ident = (rawTgUser && rawTgUser.username) ? '@' + rawTgUser.username : myPlayerId;
-        const donateBtnHtml = DONATE_URL
-            ? `<button class="btn btn-green" style="width:100%;" onclick="sfxClick(); window.open('${DONATE_URL}', '_blank')">💳 ПЕРЕЙТИ К ОПЛАТЕ</button>`
-            : `<div style="font-size:0.74rem; color:#94a3b8; text-align:center; line-height:1.35;">Чтобы пополнить баланс по курсу, переведи нужную сумму администратору и укажи свой ник — гемы придут автоматически.</div>`;
+        const vipPlansHtml = VIP_PLANS.map(p => `
+            <div style="display:flex; align-items:center; justify-content:space-between; background:rgba(251,191,36,0.12); border:1px solid rgba(251,191,36,0.45); border-radius:10px; padding:8px 10px; margin-bottom:6px;">
+                <div style="text-align:left;">
+                    <div style="font-size:0.84rem; font-weight:800; color:#fff;">${p.icon} ${p.title}</div>
+                    <div style="font-size:0.7rem; color:#fde68a;">${p.badge} • ×2 гемы, темы, музыка, корона</div>
+                </div>
+                <button class="shop-buy-btn" style="background:linear-gradient(135deg,#fbbf24,#f59e0b); color:#0f172a;" onclick="sfxClick(); openRubPaymentModal({ type: 'vip', title: '${p.title}', rub: ${p.priceRub}, days: ${p.days} });">
+                    ${p.priceRub} ₽
+                </button>
+            </div>
+        `).join('');
 
         listEl.innerHTML = `
+            <div class="rate-card" style="border-color:#fbbf24; margin-bottom:10px;">
+                <div class="rate-banner" style="color:#fbbf24;">👑 VIP-СТАТУС ${vip ? `(${getVipStatusText()})` : ''}</div>
+                ${vipPlansHtml}
+            </div>
             <div class="rate-card">
-                <div class="rate-banner">💱 КУРС: 1 ₽ = ${GEM_RATE_RUB} 💎</div>
-                <div style="font-size:0.78rem; color:#cbd5e1; text-align:center;">Введи сумму, чтобы посчитать гемы:</div>
+                <div class="rate-banner">💱 ПОКУПКА ГЕМОВ: 1 ₽ = ${GEM_RATE_RUB} 💎</div>
+                <div style="font-size:0.78rem; color:#cbd5e1; text-align:center;">Введи сумму в рублях (мин. 10 ₽):</div>
                 <div class="rate-calc-row">
-                    <input type="number" id="rate-rub-input" class="rate-input" value="100" min="1" oninput="updateRateCalc()">
+                    <input type="number" id="rate-rub-input" class="rate-input" value="100" min="10" oninput="updateRateCalc()">
                     <span style="font-weight:900; color:#94a3b8;">₽</span>
                     <div id="rate-gems-output" class="rate-result">= ${100 * GEM_RATE_RUB} 💎</div>
                 </div>
@@ -333,19 +350,13 @@ function renderShopItems() {
                     <button class="rate-preset-btn" onclick="setRatePreset(250)">250 ₽</button>
                     <button class="rate-preset-btn" onclick="setRatePreset(500)">500 ₽</button>
                 </div>
-                <div class="rate-id-box">
-                    <span>Твой ник для зачисления: <b style="color:#fff;">${ident}</b></span>
-                    <button class="btn btn-xs" style="border-color:var(--accent);" onclick="copyPlayerTagForTopup()">📋</button>
-                </div>
-                ${donateBtnHtml}
+                <button class="btn btn-green" style="width:100%;" onclick="startCustomGemRubOrder()">💳 КУПИТЬ ГЕМЫ НА КАРТУ</button>
             </div>
         `;
         return;
     }
 
-    // Плашка VIP-статуса вверху магазина
-    const vip = typeof isVipUser === 'function' && isVipUser();
-    const minVipPrice = (typeof VIP_PLANS !== 'undefined' && VIP_PLANS.length) ? VIP_PLANS[0].priceRub : 59;
+    const minVipPrice = (typeof VIP_PLANS !== 'undefined' && VIP_PLANS.length) ? VIP_PLANS[0].priceRub : 69;
     const vipBanner = document.createElement('div');
     vipBanner.className = 'shop-card' + (vip ? ' equipped' : '');
     vipBanner.style.borderColor = '#fbbf24';
@@ -355,7 +366,7 @@ function renderShopItems() {
             <div class="shop-item-icon">👑</div>
             <div style="min-width:0;">
                 <div class="shop-item-title" style="color:#fbbf24;">${vip ? getVipStatusText() : 'VIP-СТАТУС GAME HUB'}</div>
-                <div class="shop-item-desc">${vip ? '×2 гемы, все темы, своя музыка и статус в топе активны!' : '3 тарифа: 7 дней • 30 дней • Навсегда'}</div>
+                <div class="shop-item-desc">${vip ? '×2 гемы, все темы, своя музыка и статус в топе активны!' : '7 дней (69₽) • 30 дней (249₽) • Навсегда (499₽)'}</div>
             </div>
         </div>
         <button class="shop-buy-btn ${vip ? 'is-equipped' : ''}" onclick="sfxClick(); showVipRequiredModal('VIP-статус');">${vip ? '✅ Активен' : `от ${minVipPrice} ₽`}</button>
@@ -482,7 +493,7 @@ async function syncGemsToCloud(isManual = false) {
 
         if (existing.vipUntil !== undefined && Number(existing.vipUntil) !== vipUntilTs) {
             const wasVip = isVipUser();
-            setVipUntil(Number(existing.vipUntil) || 0, true);
+            setVipUntil(Number(existing.vipUntil) || 0, false);
             if (!wasVip && isVipUser()) {
                 sfxVictory();
                 doVibrate([50, 30, 90]);
