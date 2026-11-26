@@ -7,7 +7,7 @@ const VIP_GEM_MULT = 2;      // Множитель гемов за игры дл
 const TOPUP_ENABLED = true;  // Вкладка доната «💎 Курс» открыта
 
 // Вставь сюда свою ссылку на оплату (CloudTips / DonationAlerts / Tribute / ЮMoney):
-const DONATE_URL = 'https://pay.cloudtips.ru/p/ТВОЯ_ССЫЛКА';
+const DONATE_URL = 'https://www.donationalerts.com/widget/donathon?token=TQLuaazYZzwRVSuphjlo';
 
 const VIP_PLANS = [
     { id: 'vip_7d',   days: 7,  priceRub: 69,  icon: '⏳', title: 'VIP на 7 дней',  badge: 'Неделя' },
