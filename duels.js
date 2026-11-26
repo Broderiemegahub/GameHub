@@ -1,4 +1,4 @@
-// ==================== ОНЛАЙН-ДУЭЛИ 1 НА 1 (SEEDED PVP) ====================
+// ==================== ОНЛАЙН-ДУЭЛИ 1 НА 1 (SEEDED PVP + ОНЛАЙН-ШАХМАТЫ) ====================
 let activeDuel = null;
 let duelRng = null;
 let currentDuelTab = 'incoming';
@@ -22,6 +22,7 @@ function getDuelGameLabel(game) {
     if (game === 'mines') return '💣 Сапёр';
     if (game === 'tetris') return '🧱 Тетрис';
     if (game === 'aim') return '🎯 Cyber Aim';
+    if (game === 'chess') return '♟️ Шахматы';
     return game;
 }
 
@@ -47,6 +48,15 @@ function updateDuelLiveBanner() {
 
 function abortActiveDuel() {
     if (!activeDuel) return true;
+
+    // Онлайн-шахматы поочерёдные: можно свободно выйти в меню и вернуться к ходу позже
+    if (activeDuel.game === 'chess') {
+        activeDuel = null;
+        duelRng = null;
+        updateDuelLiveBanner();
+        return true;
+    }
+
     const msg = activeDuel.role === 'creator'
         ? 'Выйти из дуэли? Вызов не будет отправлен (гемы не спишутся).'
         : 'Сдаться и выйти из дуэли? Ставка достанется сопернику!';
@@ -130,10 +140,11 @@ async function renderCreateDuelForm(container) {
     container.innerHTML = `
         <div class="duel-setup-card">
             <div class="duel-sec-title">1. ВЫБЕРИ ИГРУ</div>
-            <div class="duel-chip-row">
+            <div class="duel-chip-row" style="flex-wrap:wrap;">
                 <button class="duel-chip ${selectedDuelGame === 'mines' ? 'active' : ''}" onclick="selectDuelGame('mines')">💣 Сапёр</button>
                 <button class="duel-chip ${selectedDuelGame === 'tetris' ? 'active' : ''}" onclick="selectDuelGame('tetris')">🧱 Тетрис</button>
                 <button class="duel-chip ${selectedDuelGame === 'aim' ? 'active' : ''}" onclick="selectDuelGame('aim')">🎯 Аим</button>
+                <button class="duel-chip ${selectedDuelGame === 'chess' ? 'active' : ''}" onclick="selectDuelGame('chess')">♟️ Шахматы</button>
             </div>
 
             <div class="duel-sec-title">2. СТАВКА (У тебя: ${myGems} 💎)</div>
@@ -148,7 +159,7 @@ async function renderCreateDuelForm(container) {
             <div id="duel-opponents-list" class="duel-opponents-list"></div>
 
             <button class="btn btn-duel" style="width:100%; margin-top:6px;" onclick="launchCreatedDuel()">
-                ⚔️ ИГРАТЬ И ОТПРАВИТЬ ВЫЗОВ
+                ${selectedDuelGame === 'chess' ? '♟️ НАЧАТЬ ОНЛАЙН-ПАРТИЮ' : '⚔️ ИГРАТЬ И ОТПРАВИТЬ ВЫЗОВ'}
             </button>
         </div>
     `;
@@ -236,7 +247,9 @@ function launchCreatedDuel() {
         fromTag: tgUser.username,
         toId: selectedDuelOpponent.id,
         toName: selectedDuelOpponent.name,
-        toTag: selectedDuelOpponent.tag
+        toTag: selectedDuelOpponent.tag,
+        myColor: 'w',
+        isFirstMove: true
     };
 
     sfxVictory();
@@ -264,6 +277,9 @@ function startDuelGameplay() {
         document.getElementById('aim-screen').style.display = 'flex';
         updateDuelLiveBanner();
         initAim();
+    } else if (game === 'chess') {
+        document.getElementById('chess-screen').style.display = 'flex';
+        if (typeof startNewOnlineChess === 'function') startNewOnlineChess(activeDuel);
     }
 }
 
@@ -302,7 +318,6 @@ async function finishDuelAttempt(score, failed = false) {
     const badgeEl = document.getElementById('duel-res-badge');
 
     if (duel.role === 'creator') {
-        // Списываем ставку при отправке вызова
         if (duel.bet > 0) {
             if (getGems() < duel.bet) {
                 alert('Недостаточно кристаллов для завершения ставки!');
@@ -517,18 +532,21 @@ async function renderDuelsList(container, mode) {
         let filtered = [];
         if (mode === 'incoming') {
             filtered = all
-                .filter(d => d.toId === myPlayerId && d.status === 'pending')
-                .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+                .filter(d =>
+                    (d.toId === myPlayerId && d.status === 'pending') ||
+                    (d.game === 'chess' && d.status === 'chess_active' && (d.fromId === myPlayerId || d.toId === myPlayerId))
+                )
+                .sort((a, b) => (b.updatedAt || b.createdAt || 0) - (a.updatedAt || a.createdAt || 0));
         } else {
             filtered = all
-                .filter(d => d.fromId === myPlayerId || d.toId === myPlayerId)
-                .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
+                .filter(d => (d.fromId === myPlayerId || d.toId === myPlayerId) && d.status !== 'chess_active')
+                .sort((a, b) => (b.finishedAt || b.createdAt || 0) - (a.finishedAt || a.createdAt || 0))
                 .slice(0, 25);
         }
 
         if (filtered.length === 0) {
             container.innerHTML = mode === 'incoming'
-                ? `<div style="text-align:center; color:#94a3b8; padding:24px; font-size:0.88rem;">Входящих вызовов пока нет.<br><br><button class="btn btn-sm btn-duel" onclick="switchDuelTab('create')">🎯 Бросить вызов первым</button></div>`
+                ? `<div style="text-align:center; color:#94a3b8; padding:24px; font-size:0.88rem;">Активных вызовов и шахматных партий нет.<br><br><button class="btn btn-sm btn-duel" onclick="switchDuelTab('create')">🎯 Бросить вызов первым</button></div>`
                 : `<div style="text-align:center; color:#94a3b8; padding:24px; font-size:0.88rem;">История дуэлей пуста.</div>`;
             return;
         }
@@ -536,10 +554,38 @@ async function renderDuelsList(container, mode) {
         container.innerHTML = '';
         filtered.forEach(d => {
             const card = document.createElement('div');
+            const betLabel = d.bet > 0 ? `💎 ${d.bet} (банк ${d.bet * 2})` : 'Бесплатно';
+
+            // Активная пошаговая партия в Онлайн-Шахматы
+            if (d.game === 'chess' && d.status === 'chess_active') {
+                const iAmCreator = d.fromId === myPlayerId;
+                const oppName = iAmCreator ? d.toName : d.fromName;
+                const isMyTurn = d.currentTurnId === myPlayerId;
+                const canDecline = !iAmCreator && !d.acceptedByOpponent;
+
+                card.className = 'duel-card' + (isMyTurn ? ' is-incoming' : '');
+                card.innerHTML = `
+                    <div class="duel-card-top">
+                        <div>
+                            <div class="lb-name">♟️ vs ${oppName}</div>
+                            <div class="lb-tag">Ход #${d.moveCount || 1} • ${isMyTurn ? '<b style="color:#4ade80;">🟢 ТВОЙ ХОД!</b>' : '<span style="color:#94a3b8;">⏳ Ждём соперника</span>'}</div>
+                        </div>
+                        <div class="duel-bet-pill">${betLabel}</div>
+                    </div>
+                    <div class="duel-card-actions">
+                        <button class="btn btn-xs ${isMyTurn ? 'btn-green' : ''}" onclick="openOnlineChessMatch('${d.id}')">
+                            ${isMyTurn ? '♟️ Сделать ход' : '👁️ Открыть доску'}
+                        </button>
+                        ${canDecline ? `<button class="btn btn-xs btn-red" onclick="declineDuelChallenge('${d.id}')">✖ Отклонить</button>` : ''}
+                    </div>
+                `;
+                container.appendChild(card);
+                return;
+            }
+
             const isIncoming = d.toId === myPlayerId && d.status === 'pending';
             card.className = 'duel-card' + (isIncoming ? ' is-incoming' : '');
 
-            const betLabel = d.bet > 0 ? `💎 ${d.bet} (банк ${d.bet * 2})` : 'Бесплатно';
             if (isIncoming) {
                 card.innerHTML = `
                     <div class="duel-card-top">
@@ -557,8 +603,10 @@ async function renderDuelsList(container, mode) {
             } else {
                 const iAmCreator = d.fromId === myPlayerId;
                 const oppName = iAmCreator ? d.toName : d.fromName;
-                const myScore = iAmCreator ? formatDuelScore(d.game, d.creatorScore, d.creatorFailed) : formatDuelScore(d.game, d.opponentScore, d.opponentFailed);
-                const oppScore = iAmCreator ? formatDuelScore(d.game, d.opponentScore, d.opponentFailed) : formatDuelScore(d.game, d.creatorScore, d.creatorFailed);
+                const isChess = d.game === 'chess';
+                const myScore = isChess ? '' : (iAmCreator ? formatDuelScore(d.game, d.creatorScore, d.creatorFailed) : formatDuelScore(d.game, d.opponentScore, d.opponentFailed));
+                const oppScore = isChess ? '' : (iAmCreator ? formatDuelScore(d.game, d.opponentScore, d.opponentFailed) : formatDuelScore(d.game, d.creatorScore, d.creatorFailed));
+                const scoreSuffix = isChess ? '' : ` • ${myScore} vs ${oppScore}`;
 
                 let statusHtml = '';
                 if (d.status === 'pending') {
@@ -569,11 +617,11 @@ async function renderDuelsList(container, mode) {
                     statusHtml = `<span style="color:#94a3b8;">✖ Вызов отклонён (возврат)</span>`;
                 } else if (d.status === 'finished') {
                     if (d.winnerId === myPlayerId) {
-                        statusHtml = `<span style="color:#4ade80;">🏆 Победа (+${d.bet * 2} 💎) • ${myScore} vs ${oppScore}</span>`;
+                        statusHtml = `<span style="color:#4ade80;">🏆 Победа (+${d.bet * 2} 💎)${scoreSuffix}</span>`;
                     } else if (d.winnerId === 'draw') {
-                        statusHtml = `<span style="color:#cbd5e1;">🤝 Ничья • ${myScore} vs ${oppScore}</span>`;
+                        statusHtml = `<span style="color:#cbd5e1;">🤝 Ничья${scoreSuffix}</span>`;
                     } else {
-                        statusHtml = `<span style="color:#ef4444;">💀 Поражение • ${myScore} vs ${oppScore}</span>`;
+                        statusHtml = `<span style="color:#ef4444;">💀 Поражение${scoreSuffix}</span>`;
                     }
                 }
 
@@ -594,7 +642,7 @@ async function renderDuelsList(container, mode) {
     }
 }
 
-// Фоновая проверка входящих вызовов и автоматическое начисление выигрышей/возвратов
+// Фоновая проверка входящих вызовов, очередей хода в шахматах и автовыплат
 async function syncDuelsAndPayouts() {
     if (isUserBanned) return;
     const baseUrl = FIREBASE_URL.replace(/\/+$/, '');
@@ -605,8 +653,11 @@ async function syncDuelsAndPayouts() {
         const raw = (await res.json()) || {};
         const all = Object.values(raw).filter(d => d && typeof d === 'object');
 
-        // 1. Входящие вызовы
-        const incoming = all.filter(d => d.toId === myPlayerId && d.status === 'pending');
+        // 1. Входящие вызовы + онлайн-шахматы, где сейчас твой ход
+        const incoming = all.filter(d =>
+            (d.toId === myPlayerId && d.status === 'pending') ||
+            (d.game === 'chess' && d.status === 'chess_active' && d.currentTurnId === myPlayerId)
+        );
         const badgeEl = document.getElementById('duels-incoming-badge');
         const menuBanner = document.getElementById('menu-duel-banner');
 
@@ -622,7 +673,12 @@ async function syncDuelsAndPayouts() {
         if (menuBanner) {
             if (incoming.length > 0) {
                 const first = incoming[0];
-                menuBanner.innerHTML = `⚔️ <b>${first.fromName}</b> вызывает тебя (${getDuelGameLabel(first.game)}${first.bet > 0 ? ` • ${first.bet} 💎` : ''})!`;
+                if (first.game === 'chess' && first.status === 'chess_active') {
+                    const oppName = first.fromId === myPlayerId ? first.toName : first.fromName;
+                    menuBanner.innerHTML = `♟️ Твой ход в онлайн-шахматах против <b>${oppName}</b>!`;
+                } else {
+                    menuBanner.innerHTML = `⚔️ <b>${first.fromName}</b> вызывает тебя (${getDuelGameLabel(first.game)}${first.bet > 0 ? ` • ${first.bet} 💎` : ''})!`;
+                }
                 menuBanner.style.display = 'block';
                 if (incoming.length > lastNotifiedIncomingCount) {
                     sfxFlag();
@@ -633,25 +689,29 @@ async function syncDuelsAndPayouts() {
         }
         lastNotifiedIncomingCount = incoming.length;
 
-        // 2. Автовыплата побед / ничьих / отказов для создателя дуэли
+        // 2. Автовыплата побед / ничьих / отказов (для создателя дуэли ИЛИ победителя сдачи в шахматах)
         for (const d of all) {
-            if (d.fromId !== myPlayerId || d.payoutClaimed) continue;
+            if (d.payoutClaimed) continue;
 
-            if (d.status === 'finished' && d.winnerId === myPlayerId) {
+            const isWinnerClaim = d.status === 'finished' && d.winnerId === myPlayerId && (d.fromId === myPlayerId || d.game === 'chess');
+            const isCreatorRefund = d.fromId === myPlayerId && ((d.status === 'finished' && d.winnerId === 'draw') || d.status === 'declined');
+
+            if (isWinnerClaim) {
                 await fetch(`${baseUrl}/duels/${d.id}.json`, {
                     method: 'PATCH',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ payoutClaimed: true })
                 });
                 const winBank = (Number(d.bet) || 0) * 2;
+                const oppName = d.fromId === myPlayerId ? d.toName : d.fromName;
                 if (winBank > 0) {
                     addGems(winBank);
                     sfxVictory();
                     spawnConfettiCannon(true);
                     spawnConfettiCannon(false);
-                    spawnFloatText(window.innerWidth / 2, 130, `🏆 ПОБЕДА В ДУЭЛИ vs ${d.toName}: +${winBank} 💎!`, '#4ade80');
+                    spawnFloatText(window.innerWidth / 2, 130, `🏆 ПОБЕДА vs ${oppName}: +${winBank} 💎!`, '#4ade80');
                 }
-            } else if ((d.status === 'finished' && d.winnerId === 'draw') || d.status === 'declined') {
+            } else if (isCreatorRefund) {
                 await fetch(`${baseUrl}/duels/${d.id}.json`, {
                     method: 'PATCH',
                     headers: { 'Content-Type': 'application/json' },
