@@ -6,9 +6,8 @@ const GEM_RATE_RUB = 10;     // Курс валюты: 1 ₽ = 10 💎
 const VIP_GEM_MULT = 2;      // Множитель гемов за игры для VIP (×2)
 const TOPUP_ENABLED = true;  // Вкладка доната «💎 Курс» открыта
 
-// Впиши сюда свои реквизиты для перевода на карту / СБП:
-const PAY_CARD_INFO = 'хахахааха лол не дам пока номер карты';
-const DONATE_URL = '';       // Необязательно: прямая ссылка на перевод
+// Вставь сюда свою ссылку на оплату (CloudTips / DonationAlerts / Tribute / ЮMoney):
+const DONATE_URL = 'https://pay.cloudtips.ru/p/ТВОЯ_ССЫЛКА';
 
 const VIP_PLANS = [
     { id: 'vip_7d',   days: 7,  priceRub: 69,  icon: '⏳', title: 'VIP на 7 дней',  badge: 'Неделя' },
@@ -31,7 +30,7 @@ const APP_VERSION = '2.9';
 const CHANGELOG = [
     '♟️ Шахматы: игра против бота (3 уровня), на двоих и пошаговые онлайн-партии в Дуэлях',
     '🛒 Скины шахматных досок, эффекты взятия фигур и аксессуары в Магазине',
-    '💳 Пополнение кристаллов и покупка VIP переводом на карту / СБП',
+    '💳 Пополнение кристаллов и покупка VIP по прямой платёжной ссылке',
     '🛡️ Защита облачного баланса от сброса при обрыве сети'
 ];
 
@@ -193,12 +192,12 @@ function showVipRequiredModal(featureName = '') {
     if (footerEl) {
         footerEl.innerHTML = isVipUser()
             ? `<b style="color:#4ade80;">✅ Активен: ${getVipStatusText()}</b> (можно продлить)`
-            : `Оплата переводом на карту • Твой ID: <code>${myPlayerId}</code>`;
+            : `Оплата по ссылке • Твой ID: <code>${myPlayerId}</code>`;
     }
     modal.classList.add('active');
 }
 
-// ==================== ОКНО ОПЛАТЫ РУБЛЯМИ НА КАРТУ ====================
+// ==================== ОКНО ОПЛАТЫ ПО ПЛАТЁЖНОЙ ССЫЛКЕ ====================
 let currentRubOrder = null;
 let isSendingDonateReq = false;
 
@@ -208,6 +207,25 @@ function copyTextSafe(text, label) {
         navigator.clipboard.writeText(text).catch(() => {});
     }
     spawnFloatText(window.innerWidth / 2, window.innerHeight / 2, `📋 ${label}`, '#4ade80');
+}
+
+function openExternalPayLink(url) {
+    sfxClick();
+    if (!url || url.includes('ТВОЯ_ССЫЛКА')) {
+        alert('Ссылка на оплату ещё не настроена администратором!');
+        return;
+    }
+    if (tgWebApp) {
+        if (url.includes('t.me/') && tgWebApp.openTelegramLink) {
+            tgWebApp.openTelegramLink(url);
+            return;
+        }
+        if (tgWebApp.openLink) {
+            tgWebApp.openLink(url);
+            return;
+        }
+    }
+    window.open(url, '_blank');
 }
 
 function openRubPaymentModal(order) {
@@ -220,21 +238,17 @@ function openRubPaymentModal(order) {
         modal.innerHTML = `
             <div class="victory-card" style="border-color:#4ade80; max-width:355px; padding:16px;">
                 <div style="font-size:2rem; line-height:1;">💳</div>
-                <div class="victory-title" style="color:#4ade80; font-size:1.2rem;">ОПЛАТА ПЕРЕВОДОМ</div>
-                <div id="rub-pay-summary" style="font-size:0.9rem; font-weight:800; color:#fff; margin:6px 0;"></div>
-                <div style="background:rgba(15,23,42,0.85); border:1px solid rgba(148,163,184,0.35); border-radius:10px; padding:10px; width:100%; text-align:left; font-size:0.78rem; color:#cbd5e1; margin-bottom:8px;">
-                    <div style="color:#94a3b8; font-size:0.7rem; margin-bottom:3px;">1. Переведи точную сумму по реквизитам:</div>
-                    <div style="display:flex; align-items:center; justify-content:space-between; gap:6px;">
-                        <b id="rub-pay-card" style="color:#fbbf24; word-break:break-word;"></b>
-                        <button class="btn btn-xs" style="border-color:#fbbf24; color:#fbbf24; flex-shrink:0;" onclick="copyTextSafe(PAY_CARD_INFO, 'Реквизиты скопированы')">📋</button>
+                <div class="victory-title" style="color:#4ade80; font-size:1.2rem;">ОПЛАТА ПО ССЫЛКЕ</div>
+                <div id="rub-pay-summary" style="font-size:0.92rem; font-weight:800; color:#fff; margin:6px 0;"></div>
+                <div style="background:rgba(15,23,42,0.85); border:1px solid rgba(148,163,184,0.35); border-radius:10px; padding:10px; width:100%; text-align:left; font-size:0.78rem; color:#cbd5e1; margin-bottom:10px;">
+                    <div style="color:#94a3b8; font-size:0.72rem; margin-bottom:4px;">1. Скопируй свой ID и укажи его в сообщении к платежу:</div>
+                    <div style="display:flex; align-items:center; justify-content:space-between; gap:6px; margin-bottom:8px;">
+                        <code id="rub-pay-id" style="color:#38bdf8; font-weight:800; font-size:0.86rem;"></code>
+                        <button class="btn btn-xs" style="border-color:#38bdf8; color:#38bdf8; flex-shrink:0;" onclick="copyTextSafe(myPlayerId, 'ID скопирован')">📋 Копировать</button>
                     </div>
-                    <div style="color:#94a3b8; font-size:0.7rem; margin:8px 0 3px;">2. В комментарии к переводу укажи свой ID:</div>
-                    <div style="display:flex; align-items:center; justify-content:space-between; gap:6px;">
-                        <code id="rub-pay-id" style="color:#38bdf8; font-weight:800;"></code>
-                        <button class="btn btn-xs" style="border-color:#38bdf8; color:#38bdf8; flex-shrink:0;" onclick="copyTextSafe(myPlayerId, 'ID скопирован')">📋</button>
-                    </div>
+                    <div style="color:#94a3b8; font-size:0.72rem;">2. Нажми «Перейти к оплате», оплати точную сумму и вернись нажать «Я оплатил».</div>
                 </div>
-                <div id="rub-pay-link-box" style="width:100%; margin-bottom:6px;"></div>
+                <button class="btn" style="width:100%; border-color:#38bdf8; color:#38bdf8; margin-bottom:6px;" onclick="openExternalPayLink(DONATE_URL)">🔗 ПЕРЕЙТИ К ОПЛАТЕ</button>
                 <button id="rub-pay-confirm-btn" class="btn btn-green" style="width:100%; margin-bottom:6px;" onclick="submitRubPaymentRequest()">✅ Я ОПЛАТИЛ</button>
                 <button class="btn btn-sm" style="width:100%;" onclick="sfxClick(); document.getElementById('rub-pay-modal').classList.remove('active');">ОТМЕНА</button>
             </div>
@@ -243,15 +257,7 @@ function openRubPaymentModal(order) {
     }
 
     document.getElementById('rub-pay-summary').innerText = `${order.title} — ${order.rub} ₽`;
-    document.getElementById('rub-pay-card').innerText = PAY_CARD_INFO;
     document.getElementById('rub-pay-id').innerText = myPlayerId;
-
-    const linkBox = document.getElementById('rub-pay-link-box');
-    if (DONATE_URL) {
-        linkBox.innerHTML = `<button class="btn btn-sm" style="width:100%; border-color:#38bdf8; color:#38bdf8;" onclick="sfxClick(); window.open('${DONATE_URL}', '_blank')">🔗 Перейти по ссылке оплаты</button>`;
-    } else {
-        linkBox.innerHTML = '';
-    }
 
     const confirmBtn = document.getElementById('rub-pay-confirm-btn');
     confirmBtn.disabled = false;
@@ -291,7 +297,7 @@ async function submitRubPaymentRequest() {
         sfxVictory();
         doVibrate([40, 30, 80]);
         document.getElementById('rub-pay-modal').classList.remove('active');
-        alert('✅ Заявка отправлена администратору! Как только перевод проверится, VIP или гемы придут автоматически (нажми на баланс 💎 в меню, чтобы обновить).');
+        alert('✅ Заявка отправлена администратору! Как только платёж проверится, VIP или гемы придут автоматически (нажми на баланс 💎 в меню, чтобы обновить).');
     } catch {
         sfxAlarm();
         alert('⚠️ Не удалось отправить заявку (проверь интернет/VPN) и попробуй ещё раз.');
@@ -390,9 +396,7 @@ async function pullCloudSave() {
         if (typeof syncGemsToCloud === 'function') {
             await syncGemsToCloud();
         }
-    } catch {
-        // При ошибке сети не перезаписываем облако локальным состоянием
-    }
+    } catch {}
 }
 
 function shareGameScore(text) {
