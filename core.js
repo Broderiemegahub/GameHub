@@ -7,9 +7,9 @@ const TOPUP_ENABLED = false; // false = вкладка «Курс» закрыт
 const DONATE_URL = '';       // Сюда позже вставишь ссылку на оплату
 
 const VIP_PLANS = [
-    { id: 'vip_7d',   days: 7,  priceRub: 59,  icon: '⏳', title: 'VIP на 7 дней',  badge: 'Неделя' },
-    { id: 'vip_30d',  days: 30, priceRub: 149, icon: '🔥', title: 'VIP на 30 дней', badge: 'Выгодно' },
-    { id: 'vip_perm', days: 0,  priceRub: 399, icon: '♾️', title: 'VIP НАВСЕГДА',   badge: 'Навсегда' }
+    { id: 'vip_7d',   days: 7,  priceRub: 69,  icon: '⏳', title: 'VIP на 7 дней',  badge: 'Неделя' },
+    { id: 'vip_30d',  days: 30, priceRub: 249, icon: '🔥', title: 'VIP на 30 дней', badge: 'Выгодно' },
+    { id: 'vip_perm', days: 0,  priceRub: 499, icon: '♾️', title: 'VIP НАВСЕГДА',   badge: 'Навсегда' }
 ];
 
 // ==================== СИСТЕМА ОБНОВЛЕНИЙ ====================
