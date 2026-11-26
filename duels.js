@@ -49,7 +49,6 @@ function updateDuelLiveBanner() {
 function abortActiveDuel() {
     if (!activeDuel) return true;
 
-    // Онлайн-шахматы поочерёдные: можно свободно выйти в меню и вернуться к ходу позже
     if (activeDuel.game === 'chess') {
         activeDuel = null;
         duelRng = null;
@@ -106,13 +105,14 @@ async function renderCreateDuelForm(container) {
     const baseUrl = FIREBASE_URL.replace(/\/+$/, '');
     let players = [];
     let bannedMap = {};
+    let loadFailed = false;
 
     if (baseUrl.startsWith('http')) {
         try {
             const ts = Date.now();
             const [pRes, bRes] = await Promise.all([
-                fetch(`${baseUrl}/players.json?t=${ts}`, { cache: 'no-store' }),
-                fetch(`${baseUrl}/banned.json?t=${ts}`, { cache: 'no-store' })
+                fetchWithTimeout(`${baseUrl}/players.json?t=${ts}`, { cache: 'no-store' }, 8000),
+                fetchWithTimeout(`${baseUrl}/banned.json?t=${ts}`, { cache: 'no-store' }, 8000)
             ]);
             const pData = (await pRes.json()) || {};
             bannedMap = (await bRes.json()) || {};
@@ -128,7 +128,19 @@ async function renderCreateDuelForm(container) {
                     lastSeen: Number(info.lastSeen) || 0
                 }))
                 .sort((a, b) => b.lastSeen - a.lastSeen);
-        } catch {}
+        } catch {
+            loadFailed = true;
+        }
+    }
+
+    if (loadFailed) {
+        container.innerHTML = `
+            <div style="text-align:center; color:#ef4444; padding:20px; font-size:0.86rem;">
+                ⚠️ Не удалось загрузить список игроков (проверь интернет/VPN)<br><br>
+                <button class="btn btn-sm" onclick="renderDuelsTab()">🔄 Повторить</button>
+            </div>
+        `;
+        return;
     }
 
     cachedDuelPlayers = players;
@@ -291,7 +303,7 @@ async function sendDuelTelegramNotification(toId, text) {
 
     const chatId = toId.slice(3);
     try {
-        await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+        await fetchWithTimeout(`https://api.telegram.org/bot${token}/sendMessage`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -299,7 +311,7 @@ async function sendDuelTelegramNotification(toId, text) {
                 text: text,
                 parse_mode: 'HTML'
             })
-        });
+        }, 6000);
     } catch {}
 }
 
@@ -349,11 +361,11 @@ async function finishDuelAttempt(score, failed = false) {
         };
 
         try {
-            await fetch(`${baseUrl}/duels/${duel.id}.json`, {
+            await fetchWithTimeout(`${baseUrl}/duels/${duel.id}.json`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
-            });
+            }, 8000);
             const betStr = duel.bet > 0 ? `\nСтавка: <b>${duel.bet} 💎</b> (банк ${duel.bet * 2} 💎)` : '';
             sendDuelTelegramNotification(
                 duel.toId,
@@ -376,7 +388,7 @@ async function resolveAcceptedDuelInCloud(duel, oppScore, oppFailed, showModal =
     const baseUrl = FIREBASE_URL.replace(/\/+$/, '');
     let fresh = duel;
     try {
-        const res = await fetch(`${baseUrl}/duels/${duel.id}.json?t=${Date.now()}`, { cache: 'no-store' });
+        const res = await fetchWithTimeout(`${baseUrl}/duels/${duel.id}.json?t=${Date.now()}`, { cache: 'no-store' }, 8000);
         const data = await res.json();
         if (data) fresh = data;
     } catch {}
@@ -411,7 +423,7 @@ async function resolveAcceptedDuelInCloud(duel, oppScore, oppFailed, showModal =
     }
 
     try {
-        await fetch(`${baseUrl}/duels/${fresh.id}.json`, {
+        await fetchWithTimeout(`${baseUrl}/duels/${fresh.id}.json`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -422,7 +434,7 @@ async function resolveAcceptedDuelInCloud(duel, oppScore, oppFailed, showModal =
                 payoutClaimed: payoutClaimed,
                 finishedAt: Date.now()
             })
-        });
+        }, 8000);
     } catch {}
 
     if (!showModal) return;
@@ -470,7 +482,7 @@ function closeDuelResultOverlay() {
 async function acceptDuelChallenge(duelId) {
     const baseUrl = FIREBASE_URL.replace(/\/+$/, '');
     try {
-        const res = await fetch(`${baseUrl}/duels/${duelId}.json?t=${Date.now()}`, { cache: 'no-store' });
+        const res = await fetchWithTimeout(`${baseUrl}/duels/${duelId}.json?t=${Date.now()}`, { cache: 'no-store' }, 8000);
         const duel = await res.json();
         if (!duel || duel.status !== 'pending') {
             alert('Этот вызов уже неактуален!');
@@ -487,11 +499,11 @@ async function acceptDuelChallenge(duelId) {
 
         if (bet > 0) addGems(-bet);
 
-        await fetch(`${baseUrl}/duels/${duelId}.json`, {
+        await fetchWithTimeout(`${baseUrl}/duels/${duelId}.json`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ status: 'accepted', acceptedAt: Date.now() })
-        });
+        }, 8000);
 
         activeDuel = {
             ...duel,
@@ -501,7 +513,7 @@ async function acceptDuelChallenge(duelId) {
         doVibrate(40);
         startDuelGameplay();
     } catch {
-        alert('Ошибка связи с базой!');
+        alert('Ошибка связи с базой (проверь интернет/VPN)!');
     }
 }
 
@@ -510,11 +522,11 @@ async function declineDuelChallenge(duelId) {
     sfxClick();
     const baseUrl = FIREBASE_URL.replace(/\/+$/, '');
     try {
-        await fetch(`${baseUrl}/duels/${duelId}.json`, {
+        await fetchWithTimeout(`${baseUrl}/duels/${duelId}.json`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ status: 'declined', payoutClaimed: false, finishedAt: Date.now() })
-        });
+        }, 8000);
         renderDuelsTab();
         syncDuelsAndPayouts();
     } catch {}
@@ -525,7 +537,7 @@ async function renderDuelsList(container, mode) {
     if (!baseUrl.startsWith('http')) return;
 
     try {
-        const res = await fetch(`${baseUrl}/duels.json?t=${Date.now()}`, { cache: 'no-store' });
+        const res = await fetchWithTimeout(`${baseUrl}/duels.json?t=${Date.now()}`, { cache: 'no-store' }, 8000);
         const raw = (await res.json()) || {};
         const all = Object.values(raw).filter(d => d && typeof d === 'object');
 
@@ -556,7 +568,6 @@ async function renderDuelsList(container, mode) {
             const card = document.createElement('div');
             const betLabel = d.bet > 0 ? `💎 ${d.bet} (банк ${d.bet * 2})` : 'Бесплатно';
 
-            // Активная пошаговая партия в Онлайн-Шахматы
             if (d.game === 'chess' && d.status === 'chess_active') {
                 const iAmCreator = d.fromId === myPlayerId;
                 const oppName = iAmCreator ? d.toName : d.fromName;
@@ -638,22 +649,25 @@ async function renderDuelsList(container, mode) {
             container.appendChild(card);
         });
     } catch {
-        container.innerHTML = `<div style="text-align:center; color:#ef4444; padding:20px;">Ошибка загрузки дуэлей</div>`;
+        container.innerHTML = `
+            <div style="text-align:center; color:#ef4444; padding:20px; font-size:0.86rem;">
+                ⚠️ Ошибка загрузки дуэлей (проверь интернет/VPN)<br><br>
+                <button class="btn btn-sm" onclick="renderDuelsTab()">🔄 Повторить</button>
+            </div>
+        `;
     }
 }
 
-// Фоновая проверка входящих вызовов, очередей хода в шахматах и автовыплат
 async function syncDuelsAndPayouts() {
     if (isUserBanned) return;
     const baseUrl = FIREBASE_URL.replace(/\/+$/, '');
     if (!baseUrl.startsWith('http')) return;
 
     try {
-        const res = await fetch(`${baseUrl}/duels.json?t=${Date.now()}`, { cache: 'no-store' });
+        const res = await fetchWithTimeout(`${baseUrl}/duels.json?t=${Date.now()}`, { cache: 'no-store' }, 8000);
         const raw = (await res.json()) || {};
         const all = Object.values(raw).filter(d => d && typeof d === 'object');
 
-        // 1. Входящие вызовы + онлайн-шахматы, где сейчас твой ход
         const incoming = all.filter(d =>
             (d.toId === myPlayerId && d.status === 'pending') ||
             (d.game === 'chess' && d.status === 'chess_active' && d.currentTurnId === myPlayerId)
@@ -689,7 +703,6 @@ async function syncDuelsAndPayouts() {
         }
         lastNotifiedIncomingCount = incoming.length;
 
-        // 2. Автовыплата побед / ничьих / отказов (для создателя дуэли ИЛИ победителя сдачи в шахматах)
         for (const d of all) {
             if (d.payoutClaimed) continue;
 
@@ -697,11 +710,11 @@ async function syncDuelsAndPayouts() {
             const isCreatorRefund = d.fromId === myPlayerId && ((d.status === 'finished' && d.winnerId === 'draw') || d.status === 'declined');
 
             if (isWinnerClaim) {
-                await fetch(`${baseUrl}/duels/${d.id}.json`, {
+                await fetchWithTimeout(`${baseUrl}/duels/${d.id}.json`, {
                     method: 'PATCH',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ payoutClaimed: true })
-                });
+                }, 8000);
                 const winBank = (Number(d.bet) || 0) * 2;
                 const oppName = d.fromId === myPlayerId ? d.toName : d.fromName;
                 if (winBank > 0) {
@@ -712,11 +725,11 @@ async function syncDuelsAndPayouts() {
                     spawnFloatText(window.innerWidth / 2, 130, `🏆 ПОБЕДА vs ${oppName}: +${winBank} 💎!`, '#4ade80');
                 }
             } else if (isCreatorRefund) {
-                await fetch(`${baseUrl}/duels/${d.id}.json`, {
+                await fetchWithTimeout(`${baseUrl}/duels/${d.id}.json`, {
                     method: 'PATCH',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ payoutClaimed: true })
-                });
+                }, 8000);
                 const refund = Number(d.bet) || 0;
                 if (refund > 0) {
                     addGems(refund);
